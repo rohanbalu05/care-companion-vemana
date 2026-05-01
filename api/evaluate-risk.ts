@@ -620,23 +620,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const profile = await buildPatientProfile(patientId);
     const candidates = runRules(profile);
 
-    let eventsCreated = 0;
-    let eventsSkipped = 0;
-    let interventionsCreated = 0;
-    const eventIds: string[] = [];
+    const skipResults = await Promise.all(candidates.map(c => isIdempotentSkip(patientId, c)));
+    const survivors = candidates.filter((_, i) => !skipResults[i]);
+    const eventsSkipped = skipResults.filter(Boolean).length;
 
-    for (const c of candidates) {
-      const skip = await isIdempotentSkip(patientId, c);
-      if (skip) { eventsSkipped++; continue; }
+    const processed = await Promise.all(survivors.map(async c => {
       const llm = await callRiskLlm(profile, c);
       if (!llm) warnings.push(`llm_fallback:${c.event_type}`);
       const { riskEventId, interventionId } = await insertRiskEventAndIntervention(profile, c, llm);
-      if (riskEventId) {
-        eventsCreated++;
-        eventIds.push(riskEventId);
-        if (interventionId) interventionsCreated++;
-      }
-    }
+      return { riskEventId, interventionId };
+    }));
+
+    const eventIds: string[] = processed.map(p => p.riskEventId).filter((x): x is string => Boolean(x));
+    const eventsCreated = eventIds.length;
+    const interventionsCreated = processed.filter(p => p.interventionId).length;
 
     try {
       await supabase.from('audit_log').insert({
