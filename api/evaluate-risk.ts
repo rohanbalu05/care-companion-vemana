@@ -13,7 +13,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE!;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
 const RISK_LLM_MODEL = 'anthropic/claude-sonnet-4';
-const LLM_TIMEOUT_MS = 15000;
+const LLM_TIMEOUT_MS = 25000;
 const IDEMPOTENCY_HOURS = 6;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
