@@ -4,6 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE!;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
+const LLM_MODEL_FAST = process.env.LLM_MODEL_FAST || 'anthropic/claude-haiku-4.5';
 const TG_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
@@ -12,28 +14,228 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
 
 type Lang = 'en' | 'hi' | 'kn';
 
-const messages = {
+const staticMessages = {
   welcome: (name: string, lang: Lang) => ({
     hi: `नमस्ते ${name} जी! 🙏 मैं Saathi हूँ — आपकी देखभाल में आपका साथी।\nआज से, आप यहाँ अपनी BP, शुगर, दवाइयाँ और लक्षण साझा कर सकती हैं। Dr. Priya Mehta को सब अपडेट मिलेंगे।\nशुरू करने के लिए /help लिखें।`,
     kn: `ನಮಸ್ಕಾರ ${name}! 🙏 ನಾನು Saathi — ನಿಮ್ಮ ಆರೋಗ್ಯ ಸಂಗಾತಿ.\nಇಂದಿನಿಂದ, ನೀವು ನಿಮ್ಮ BP, ಸಕ್ಕರೆ, ಔಷಧಗಳು ಮತ್ತು ಲಕ್ಷಣಗಳನ್ನು ಇಲ್ಲಿ ಹಂಚಿಕೊಳ್ಳಬಹುದು.\n/help ಎಂದು ಬರೆಯಿರಿ.`,
     en: `Namaste ${name}! 🙏 I am Saathi — your care companion.\nFrom today, you can share your BP, sugar, medicines, and symptoms here. Dr. Priya Mehta will get all updates.\nType /help to begin.`
   }[lang]),
-  ack: (name: string, lang: Lang) => ({
-    hi: `मिल गया, ${name}। 🙏 मैं डॉक्टर को सूचित कर दूँगा।\n(पूरी बातचीत और AI सहायता जल्द ही शुरू होगी।)`,
-    kn: `ಸಿಕ್ಕಿತು, ${name}. 🙏 ನಾನು ಡಾಕ್ಟರ್‌ಗೆ ತಿಳಿಸುತ್ತೇನೆ.`,
-    en: `Got it, ${name}. 🙏 I will keep your doctor in the loop.\n(Full conversational + AI support coming next.)`
+  fallbackAck: (name: string, lang: Lang) => ({
+    hi: `मिल गया, ${name}। मैंने नोट कर लिया है, डॉक्टर को बता दूँगा। 🙏`,
+    kn: `ಸಿಕ್ಕಿತು, ${name}. ನಾನು ದಾಖಲಿಸಿದ್ದೇನೆ, ಡಾಕ್ಟರ್‌ಗೆ ತಿಳಿಸುತ್ತೇನೆ. 🙏`,
+    en: `Got it, ${name}. I've noted this and will keep your doctor posted. 🙏`
   }[lang]),
   invalid: `This link looks expired or already used. Please contact your clinic for a fresh link. 🙏`,
   hint: `Hello! 👋 To begin, please open the secure link your clinic shared with you. If you don't have it, please contact your clinic.`
 };
 
-async function sendMessage(chatId: number, text: string) {
+async function sendTelegramText(chatId: number | string, text: string) {
   const res = await fetch(`${TG_API}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' })
+    body: JSON.stringify({ chat_id: chatId, text })
   });
   if (!res.ok) console.error('Telegram send failed', res.status, await res.text());
+}
+
+type LinkedPatient = {
+  id: string;
+  full_name: string;
+  preferred_language: Lang;
+  telegram_chat_id: string;
+};
+
+type LlmOutput = {
+  detected_language: Lang;
+  language_switch_request: Lang | null;
+  intent: 'vitals_log' | 'symptom_log' | 'medication_query' | 'greeting' | 'distress' | 'smalltalk' | 'unknown';
+  vitals: Array<{
+    kind: 'bp' | 'fbg' | 'ppbg' | 'weight' | 'spo2';
+    value_systolic: number | null;
+    value_diastolic: number | null;
+    value_numeric: number | null;
+    unit: string;
+  }>;
+  symptoms: Array<{ name: string; severity: 'mild' | 'moderate' | 'severe' }>;
+  distress_signal: boolean;
+  reply_text: string;
+};
+
+async function buildPatientContext(patientId: string) {
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(); endOfToday.setHours(23, 59, 59, 999);
+
+  const [pRes, dxRes, medsRes, vitalsRes, adhRes] = await Promise.all([
+    supabase.from('patients').select('full_name, dob, preferred_language, last_detected_language, allergies').eq('id', patientId).single(),
+    supabase.from('diagnoses').select('condition, diagnosed_on').eq('patient_id', patientId),
+    supabase.from('medications').select('drug_name, dose_amount, dose_unit, frequency').eq('patient_id', patientId).eq('status', 'active'),
+    supabase.from('vitals').select('vital_type, value_systolic, value_diastolic, value_numeric, unit, recorded_at')
+      .eq('patient_id', patientId).gte('recorded_at', threeDaysAgo).order('recorded_at', { ascending: false }).limit(10),
+    supabase.from('adherence_events').select('status')
+      .eq('patient_id', patientId).gte('scheduled_at', startOfToday.toISOString()).lte('scheduled_at', endOfToday.toISOString())
+  ]);
+
+  const p = pRes.data;
+  const age = p?.dob ? Math.floor((Date.now() - new Date(p.dob).getTime()) / (365.25 * 24 * 3600 * 1000)) : null;
+  const adh = (adhRes.data || []).reduce((acc: Record<string, number>, r: any) => {
+    acc[r.status] = (acc[r.status] || 0) + 1; return acc;
+  }, {});
+
+  return {
+    name: p?.full_name ?? null,
+    age,
+    preferred_language: p?.preferred_language ?? 'en',
+    last_detected_language: p?.last_detected_language ?? null,
+    allergies: p?.allergies ?? [],
+    diagnoses: (dxRes.data || []).map((d: any) => ({ condition: d.condition, since: d.diagnosed_on })),
+    active_medications: (medsRes.data || []).map((m: any) => ({
+      drug: m.drug_name,
+      dose: m.dose_amount && m.dose_unit ? `${m.dose_amount}${m.dose_unit}` : null,
+      frequency: m.frequency
+    })),
+    recent_vitals_3d: vitalsRes.data || [],
+    adherence_today: { taken: adh.taken || 0, missed: adh.missed || 0, pending: adh.pending || 0 }
+  };
+}
+
+const SYSTEM_PROMPT_TEMPLATE = (ctxJson: string) => `You are Saathi, a warm chronic-care companion for Indian patients on Telegram.
+You support English, Hindi (Devanagari), and Kannada. You never invent clinical
+facts; you only react to what the patient writes and the context provided.
+
+Patient context:
+${ctxJson}
+
+Return ONLY valid JSON with this exact shape:
+{
+  "detected_language": "en" | "hi" | "kn",
+  "language_switch_request": "en" | "hi" | "kn" | null,
+  "intent": "vitals_log" | "symptom_log" | "medication_query" | "greeting" | "distress" | "smalltalk" | "unknown",
+  "vitals": [ { "kind": "bp"|"fbg"|"ppbg"|"weight"|"spo2", "value_systolic": number|null, "value_diastolic": number|null, "value_numeric": number|null, "unit": string } ],
+  "symptoms": [ { "name": string, "severity": "mild"|"moderate"|"severe" } ],
+  "distress_signal": boolean,
+  "reply_text": string
+}
+
+Rules for reply_text:
+- Reply language priority: language_switch_request > patient.preferred_language > detected_language
+- Warm but brief (1-3 sentences). One emoji max. Address patient by first name.
+- If vitals logged: confirm receipt, mention threshold context only if it
+  exceeds locked rules (BP ≥140/90, FBG ≥140, PPBG ≥200). Never diagnose.
+- If distress_signal=true: empathetic ack + reassure that the doctor will be informed.
+  Do not offer medical advice.
+- If language_switch_request is set: acknowledge the switch in the new language.`;
+
+async function callOpenRouter(ctx: object, userText: string): Promise<LlmOutput> {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://care-companion-vemana.vercel.app',
+      'X-Title': 'Care Companion Saathi'
+    },
+    body: JSON.stringify({
+      model: LLM_MODEL_FAST,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT_TEMPLATE(JSON.stringify(ctx, null, 2)) },
+        { role: 'user', content: userText }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.3
+    })
+  });
+
+  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${await res.text()}`);
+  const json: any = await res.json();
+  const content = json?.choices?.[0]?.message?.content;
+  if (!content) throw new Error('OpenRouter returned empty content');
+  return JSON.parse(content) as LlmOutput;
+}
+
+async function persistExtractions(
+  patient: LinkedPatient,
+  rawText: string,
+  telegramMessageId: number,
+  llm: LlmOutput
+) {
+  const now = new Date().toISOString();
+
+  for (const v of llm.vitals || []) {
+    try {
+      await supabase.from('vitals').insert({
+        patient_id: patient.id,
+        vital_type: v.kind,
+        value_systolic: v.value_systolic,
+        value_diastolic: v.value_diastolic,
+        value_numeric: v.value_numeric,
+        unit: v.unit,
+        source: 'telegram_text',
+        recorded_at: now
+      });
+    } catch (e) { console.error('vitals insert failed', e); }
+  }
+
+  for (const s of llm.symptoms || []) {
+    try {
+      await supabase.from('symptoms').insert({
+        patient_id: patient.id,
+        symptom_text_raw: rawText,
+        symptom_text_normalized: s.name,
+        language_detected: llm.detected_language,
+        severity: s.severity,
+        source: 'telegram_text',
+        recorded_at: now
+      });
+    } catch (e) { console.error('symptoms insert failed', e); }
+  }
+
+  if (llm.language_switch_request) {
+    try {
+      await supabase.from('patients')
+        .update({ preferred_language: llm.language_switch_request, last_detected_language: llm.detected_language })
+        .eq('id', patient.id);
+    } catch (e) { console.error('language switch update failed', e); }
+  } else if (llm.detected_language) {
+    try {
+      await supabase.from('patients')
+        .update({ last_detected_language: llm.detected_language })
+        .eq('id', patient.id);
+    } catch (e) { console.error('detected lang update failed', e); }
+  }
+
+  if (llm.distress_signal) {
+    try {
+      await supabase.from('risk_events').insert({
+        patient_id: patient.id,
+        event_type: 'symptom_cluster',
+        severity: 'medium',
+        score_delta: 0,
+        rule_fired: 'telegram_distress_signal',
+        data_point_refs: { telegram_message_id: telegramMessageId, raw_text: rawText },
+        llm_reasoning_trace: llm,
+        detected_at: now
+      });
+    } catch (e) { console.error('risk_events insert failed', e); }
+  }
+}
+
+async function handleLinkedMessage(patient: LinkedPatient, msg: any) {
+  const rawText: string = (msg.text || '').trim();
+  const telegramMessageId: number = msg.message_id;
+
+  try {
+    const ctx = await buildPatientContext(patient.id);
+    const llm = await callOpenRouter(ctx, rawText);
+    await persistExtractions(patient, rawText, telegramMessageId, llm);
+    await sendTelegramText(patient.telegram_chat_id, llm.reply_text);
+  } catch (err) {
+    console.error('LLM brain failure', { text: rawText, error: String(err) });
+    await sendTelegramText(
+      patient.telegram_chat_id,
+      staticMessages.fallbackAck(patient.full_name, patient.preferred_language)
+    );
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -45,7 +247,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!msg) return res.status(200).send('no message');
 
     const chatId: number = msg.chat.id;
-    const firstName: string = msg.chat.first_name || '';
     const text: string = (msg.text || '').trim();
     const isStart = text === '/start' || text.startsWith('/start ');
     const startToken = isStart && text.includes(' ') ? text.split(/\s+/)[1] : null;
@@ -63,29 +264,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .single();
 
       if (error || !claimed) {
-        await sendMessage(chatId, messages.invalid);
+        await sendTelegramText(chatId, staticMessages.invalid);
         return res.status(200).send('invalid token');
       }
 
       const lang = (claimed.preferred_language || 'en') as Lang;
-      await sendMessage(chatId, messages.welcome(claimed.full_name, lang));
+      await sendTelegramText(chatId, staticMessages.welcome(claimed.full_name, lang));
       return res.status(200).send('claimed');
     }
 
     const { data: patient } = await supabase
       .from('patients')
-      .select('full_name, preferred_language')
+      .select('id, full_name, preferred_language, telegram_chat_id')
       .eq('telegram_chat_id', String(chatId))
       .maybeSingle();
 
     if (!patient) {
-      await sendMessage(chatId, messages.hint);
+      await sendTelegramText(chatId, staticMessages.hint);
       return res.status(200).send('unlinked');
     }
 
-    const lang = (patient.preferred_language || 'en') as Lang;
-    await sendMessage(chatId, messages.ack(patient.full_name || firstName, lang));
-    return res.status(200).send('ack');
+    await handleLinkedMessage(patient as LinkedPatient, msg);
+    return res.status(200).send('ok');
 
   } catch (err) {
     console.error('Handler error:', err);
