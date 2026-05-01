@@ -1,7 +1,8 @@
 {
   "version": 2,
   "functions": {
-    "api/telegram.ts": { "maxDuration": 10 },
-    "api/health.ts": { "maxDuration": 5 }
+    "api/telegram.ts": { "maxDuration": 30 },
+    "api/health.ts": { "maxDuration": 5 },
+    "api/vapi-context.ts": { "maxDuration": 5 }
   }
 }

@@ -1,5 +1,8 @@
 import { FadeIn } from "../components/FadeIn";
 import RiskStoryTimeline from "../components/RiskStoryTimeline";
+import CallAshaButton from "../components/CallAshaButton";
+
+const ASHA_PATIENT_ID = "5cf64ecc-0b6a-4cea-b02b-85605a6f5f03";
 
 export default function PatientDetail() {
   return (
@@ -100,6 +103,7 @@ export default function PatientDetail() {
                         ELEVATED RISK
                       </div>
                       <a className="text-primary text-label font-label flex items-center gap-1 hover:underline mt-1" href="#">View reasoning <span className="material-symbols-outlined text-[14px]">arrow_forward</span></a>
+                      <CallAshaButton patientId={ASHA_PATIENT_ID} />
                     </div>
                     <div className="relative w-[160px] h-[160px]">
                       <svg className="w-full h-full overflow-visible" viewBox="0 0 160 160">

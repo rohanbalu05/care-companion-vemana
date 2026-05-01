@@ -5,8 +5,12 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE!;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
-const LLM_MODEL_FAST = process.env.LLM_MODEL_FAST || 'anthropic/claude-haiku-4.5';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
+const LLM_MODEL_FAST = process.env.LLM_MODEL_FAST || 'openai/gpt-4o-mini';
+const LLM_MODEL_SMART = process.env.LLM_MODEL_SMART || 'google/gemini-2.5-flash-preview';
+const DEMO_PATIENT_NAME = process.env.DEMO_PATIENT_NAME || 'Asha Sharma';
 const TG_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
+const TG_FILE_BASE = `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}`;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
   auth: { persistSession: false }
@@ -25,6 +29,25 @@ const staticMessages = {
     kn: `ಸಿಕ್ಕಿತು, ${name}. ನಾನು ದಾಖಲಿಸಿದ್ದೇನೆ, ಡಾಕ್ಟರ್‌ಗೆ ತಿಳಿಸುತ್ತೇನೆ. 🙏`,
     en: `Got it, ${name}. I've noted this and will keep your doctor posted. 🙏`
   }[lang]),
+  prescriptionConfirm: (drugList: string, lang: Lang, lowConfidence: boolean) => {
+    const base = {
+      hi: `मुझे आपका नुस्ख़ा मिल गया:\n${drugList}\nDr. Priya Mehta को सूचित कर दिया गया है ✅`,
+      kn: `ನಿಮ್ಮ ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್ ಸಿಕ್ಕಿತು:\n${drugList}\nDr. Priya Mehta ಗೆ ತಿಳಿಸಲಾಗಿದೆ ✅`,
+      en: `I've got your prescription:\n${drugList}\nDr. Priya Mehta has been notified ✅`
+    }[lang];
+    if (!lowConfidence) return base;
+    const tail = {
+      hi: `\nकृपया डॉक्टर से ये जानकारी एक बार पुष्टि कर लें।`,
+      kn: `\nದಯವಿಟ್ಟು ಈ ವಿವರಗಳನ್ನು ನಿಮ್ಮ ಡಾಕ್ಟರ್ ಬಳಿ ಒಮ್ಮೆ ಖಚಿತಪಡಿಸಿ.`,
+      en: `\nPlease confirm these details with your doctor.`
+    }[lang];
+    return base + tail;
+  },
+  notAPrescription: (lang: Lang) => ({
+    hi: `यह नुस्ख़े जैसा नहीं लग रहा। कृपया अपने प्रिंटेड प्रेसक्रिप्शन की साफ़ तस्वीर भेजें।`,
+    kn: `ಇದು ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್‌ನಂತೆ ತೋರುತ್ತಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಮುದ್ರಿತ ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್‌ನ ಸ್ಪಷ್ಟ ಫೋಟೋ ಕಳುಹಿಸಿ.`,
+    en: `This doesn't look like a prescription. Please send a clear photo of your printed prescription.`
+  }[lang]),
   invalid: `This link looks expired or already used. Please contact your clinic for a fresh link. 🙏`,
   hint: `Hello! 👋 To begin, please open the secure link your clinic shared with you. If you don't have it, please contact your clinic.`
 };
@@ -36,6 +59,26 @@ async function sendTelegramText(chatId: number | string, text: string) {
     body: JSON.stringify({ chat_id: chatId, text })
   });
   if (!res.ok) console.error('Telegram send failed', res.status, await res.text());
+}
+
+async function getTelegramFileBuffer(fileId: string): Promise<{ buffer: Buffer; mime: string; fileName: string }> {
+  const metaRes = await fetch(`${TG_API}/getFile?file_id=${encodeURIComponent(fileId)}`);
+  if (!metaRes.ok) throw new Error(`getFile failed ${metaRes.status}`);
+  const meta: any = await metaRes.json();
+  const filePath: string = meta?.result?.file_path;
+  if (!filePath) throw new Error('getFile returned no file_path');
+  const dl = await fetch(`${TG_FILE_BASE}/${filePath}`);
+  if (!dl.ok) throw new Error(`download failed ${dl.status}`);
+  const buf = Buffer.from(await dl.arrayBuffer());
+  const ext = filePath.split('.').pop() || 'bin';
+  const mime = ext === 'oga' || ext === 'ogg' ? 'audio/ogg'
+    : ext === 'mp3' ? 'audio/mpeg'
+    : ext === 'm4a' ? 'audio/mp4'
+    : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+    : ext === 'png' ? 'image/png'
+    : ext === 'webp' ? 'image/webp'
+    : 'application/octet-stream';
+  return { buffer: buf, mime, fileName: filePath.split('/').pop() || 'file' };
 }
 
 type LinkedPatient = {
@@ -59,6 +102,19 @@ type LlmOutput = {
   symptoms: Array<{ name: string; severity: 'mild' | 'moderate' | 'severe' }>;
   distress_signal: boolean;
   reply_text: string;
+};
+
+type OcrOutput = {
+  is_prescription: boolean;
+  medications: Array<{
+    drug_name: string;
+    dose_mg: number | null;
+    frequency: 'OD' | 'BD' | 'TDS' | 'QID' | 'SOS' | 'other';
+    route: 'oral' | 'topical' | 'inhaled' | 'other';
+    instructions: string | null;
+  }>;
+  prescribed_by: string | null;
+  confidence: 'high' | 'medium' | 'low';
 };
 
 async function buildPatientContext(patientId: string) {
@@ -145,12 +201,68 @@ async function callOpenRouter(ctx: object, userText: string): Promise<LlmOutput>
       temperature: 0.3
     })
   });
-
   if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${await res.text()}`);
   const json: any = await res.json();
   const content = json?.choices?.[0]?.message?.content;
   if (!content) throw new Error('OpenRouter returned empty content');
   return JSON.parse(content) as LlmOutput;
+}
+
+const OCR_SYSTEM_PROMPT = `You are a prescription parser for Indian printed prescriptions.
+Extract ONLY what is clearly printed. Never invent drug names or doses.
+Return ONLY valid JSON:
+{
+  "is_prescription": boolean,
+  "medications": [{ "drug_name": string, "dose_mg": number|null,
+    "frequency": "OD"|"BD"|"TDS"|"QID"|"SOS"|"other",
+    "route": "oral"|"topical"|"inhaled"|"other",
+    "instructions": string|null }],
+  "prescribed_by": string|null,
+  "confidence": "high"|"medium"|"low"
+}
+If not a prescription: { "is_prescription": false, "medications": [] }`;
+
+async function callOcrVision(imageDataUrl: string): Promise<OcrOutput> {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://care-companion-vemana.vercel.app',
+      'X-Title': 'Care Companion Saathi'
+    },
+    body: JSON.stringify({
+      model: LLM_MODEL_SMART,
+      messages: [
+        { role: 'system', content: OCR_SYSTEM_PROMPT },
+        { role: 'user', content: [
+          { type: 'image_url', image_url: { url: imageDataUrl } },
+          { type: 'text', text: 'Extract medications from this prescription.' }
+        ] }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1
+    })
+  });
+  if (!res.ok) throw new Error(`OpenRouter vision ${res.status}: ${await res.text()}`);
+  const json: any = await res.json();
+  const content = json?.choices?.[0]?.message?.content;
+  if (!content) throw new Error('OpenRouter vision returned empty content');
+  return JSON.parse(content) as OcrOutput;
+}
+
+async function transcribeWhisper(buffer: Buffer, fileName: string, mime: string): Promise<string> {
+  const fd = new FormData();
+  fd.append('file', new Blob([buffer], { type: mime }), fileName.endsWith('.ogg') ? fileName : `${fileName}.ogg`);
+  fd.append('model', 'whisper-1');
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+    body: fd
+  });
+  if (!res.ok) throw new Error(`Whisper ${res.status}: ${await res.text()}`);
+  const json: any = await res.json();
+  return (json?.text || '').trim();
 }
 
 async function persistExtractions(
@@ -220,21 +332,105 @@ async function persistExtractions(
   }
 }
 
-async function handleLinkedMessage(patient: LinkedPatient, msg: any) {
+async function handleLinkedTextMessage(patient: LinkedPatient, msg: any, sourceLabel: string) {
   const rawText: string = (msg.text || '').trim();
   const telegramMessageId: number = msg.message_id;
-
   try {
     const ctx = await buildPatientContext(patient.id);
     const llm = await callOpenRouter(ctx, rawText);
     await persistExtractions(patient, rawText, telegramMessageId, llm);
     await sendTelegramText(patient.telegram_chat_id, llm.reply_text);
   } catch (err) {
-    console.error('LLM brain failure', { text: rawText, error: String(err) });
+    console.error(`LLM brain failure (${sourceLabel})`, { text: rawText, error: String(err) });
     await sendTelegramText(
       patient.telegram_chat_id,
       staticMessages.fallbackAck(patient.full_name, patient.preferred_language)
     );
+  }
+}
+
+async function handleVoiceMessage(patient: LinkedPatient, msg: any) {
+  const fileId = msg.voice?.file_id || msg.audio?.file_id;
+  if (!fileId) return;
+  try {
+    const { buffer, mime, fileName } = await getTelegramFileBuffer(fileId);
+    const transcript = await transcribeWhisper(buffer, fileName, mime);
+    if (!transcript) {
+      await sendTelegramText(patient.telegram_chat_id, staticMessages.fallbackAck(patient.full_name, patient.preferred_language));
+      return;
+    }
+    const ctx = await buildPatientContext(patient.id);
+    const llm = await callOpenRouter(ctx, transcript);
+    await persistExtractions(patient, transcript, msg.message_id, llm);
+    await sendTelegramText(patient.telegram_chat_id, `🎙️ I heard: "${transcript}"\n\n${llm.reply_text}`);
+  } catch (err) {
+    console.error('Voice handler failure', err);
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.fallbackAck(patient.full_name, patient.preferred_language));
+  }
+}
+
+const ALLOWED_FREQ = new Set(['OD', 'BD', 'TDS', 'QID', 'SOS', 'HS']);
+
+async function handlePhotoMessage(patient: LinkedPatient, msg: any) {
+  let fileId: string | null = null;
+  let mimeHint = 'image/jpeg';
+  if (Array.isArray(msg.photo) && msg.photo.length > 0) {
+    fileId = msg.photo[msg.photo.length - 1].file_id;
+  } else if (msg.document && typeof msg.document.mime_type === 'string' && msg.document.mime_type.startsWith('image/')) {
+    fileId = msg.document.file_id;
+    mimeHint = msg.document.mime_type;
+  }
+  if (!fileId) return;
+
+  try {
+    const { buffer, mime } = await getTelegramFileBuffer(fileId);
+    const usedMime = mime.startsWith('image/') ? mime : mimeHint;
+    const dataUrl = `data:${usedMime};base64,${buffer.toString('base64')}`;
+    const ocr = await callOcrVision(dataUrl);
+
+    const lang = (patient.preferred_language || 'en') as Lang;
+    if (!ocr.is_prescription || (ocr.medications || []).length === 0) {
+      await sendTelegramText(patient.telegram_chat_id, staticMessages.notAPrescription(lang));
+      return;
+    }
+
+    const presRes = await supabase.from('prescriptions').insert({
+      patient_id: patient.id,
+      parsed_medications: ocr,
+      status: 'pending_review',
+      notes: ocr.confidence ? `ocr_confidence=${ocr.confidence}` : null
+    }).select('id').single();
+
+    const prescriptionId: string | null = presRes.data?.id ?? null;
+
+    const drugLines: string[] = [];
+    for (const m of ocr.medications) {
+      const freq = ALLOWED_FREQ.has(m.frequency) ? m.frequency : null;
+      try {
+        await supabase.from('medications').insert({
+          patient_id: patient.id,
+          drug_name: m.drug_name,
+          dose_amount: m.dose_mg,
+          dose_unit: m.dose_mg != null ? 'mg' : null,
+          frequency: freq,
+          instructions: [m.instructions, m.route ? `route:${m.route}` : null].filter(Boolean).join(' | ') || null,
+          status: 'pending_confirmation',
+          prescription_id: prescriptionId,
+          prescribed_on: new Date().toISOString().slice(0, 10)
+        });
+      } catch (e) { console.error('medication insert failed', e); }
+      const dose = m.dose_mg != null ? `${m.dose_mg}mg` : '';
+      const freqText = freq ? ` ${freq}` : '';
+      drugLines.push(`• ${m.drug_name}${dose ? ' ' + dose : ''}${freqText}`);
+    }
+
+    await sendTelegramText(
+      patient.telegram_chat_id,
+      staticMessages.prescriptionConfirm(drugLines.join('\n'), lang, ocr.confidence === 'low')
+    );
+  } catch (err) {
+    console.error('Photo handler failure', err);
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.fallbackAck(patient.full_name, patient.preferred_language));
   }
 }
 
@@ -250,6 +446,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const text: string = (msg.text || '').trim();
     const isStart = text === '/start' || text.startsWith('/start ');
     const startToken = isStart && text.includes(' ') ? text.split(/\s+/)[1] : null;
+
+    if (startToken === 'demo') {
+      const { data: claimed, error } = await supabase
+        .from('patients')
+        .update({
+          telegram_chat_id: String(chatId),
+          telegram_linked_at: new Date().toISOString()
+        })
+        .eq('full_name', DEMO_PATIENT_NAME)
+        .select('full_name, preferred_language')
+        .single();
+
+      if (error || !claimed) {
+        await sendTelegramText(chatId, staticMessages.invalid);
+        return res.status(200).send('demo claim failed');
+      }
+      const lang = (claimed.preferred_language || 'en') as Lang;
+      await sendTelegramText(chatId, staticMessages.welcome(claimed.full_name, lang));
+      return res.status(200).send('demo claimed');
+    }
 
     if (startToken) {
       const { data: claimed, error } = await supabase
@@ -267,7 +483,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await sendTelegramText(chatId, staticMessages.invalid);
         return res.status(200).send('invalid token');
       }
-
       const lang = (claimed.preferred_language || 'en') as Lang;
       await sendTelegramText(chatId, staticMessages.welcome(claimed.full_name, lang));
       return res.status(200).send('claimed');
@@ -284,7 +499,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).send('unlinked');
     }
 
-    await handleLinkedMessage(patient as LinkedPatient, msg);
+    const linked = patient as LinkedPatient;
+
+    if (msg.voice || msg.audio) {
+      await handleVoiceMessage(linked, msg);
+      return res.status(200).send('voice ok');
+    }
+
+    if ((Array.isArray(msg.photo) && msg.photo.length > 0) ||
+        (msg.document && typeof msg.document.mime_type === 'string' && msg.document.mime_type.startsWith('image/'))) {
+      await handlePhotoMessage(linked, msg);
+      return res.status(200).send('photo ok');
+    }
+
+    await handleLinkedTextMessage(linked, msg, 'text');
     return res.status(200).send('ok');
 
   } catch (err) {
