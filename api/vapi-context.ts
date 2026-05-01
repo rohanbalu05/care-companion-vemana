@@ -55,15 +55,18 @@ function formatRelative(iso: string | null | undefined): string {
   return `${weeks} week${weeks === 1 ? '' : 's'} ago`;
 }
 
+function isFbg(t: string) { return t === 'fbg' || t === 'glucose_fasting'; }
+function isPpbg(t: string) { return t === 'ppbg' || t === 'glucose_postprandial'; }
+
 function formatVital(v: any): string {
   const when = formatRelative(v.recorded_at);
   if (v.vital_type === 'bp' && v.value_systolic && v.value_diastolic) {
     return `BP ${v.value_systolic}/${v.value_diastolic} ${when}`;
   }
-  if (v.vital_type === 'fbg' && v.value_numeric != null) {
+  if (isFbg(v.vital_type) && v.value_numeric != null) {
     return `fasting glucose ${v.value_numeric} ${v.unit || 'mg/dL'} ${when}`;
   }
-  if (v.vital_type === 'ppbg' && v.value_numeric != null) {
+  if (isPpbg(v.vital_type) && v.value_numeric != null) {
     return `post-meal glucose ${v.value_numeric} ${v.unit || 'mg/dL'} ${when}`;
   }
   if (v.vital_type === 'weight' && v.value_numeric != null) {
@@ -169,10 +172,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if ((vitalsRes.data || []).some((v: any) => v.vital_type === 'bp' && v.value_systolic && v.value_systolic >= 140)) {
       riskParts.push('BP trending high in recent readings');
     }
-    if ((vitalsRes.data || []).some((v: any) => v.vital_type === 'ppbg' && v.value_numeric && v.value_numeric >= 200)) {
+    if ((vitalsRes.data || []).some((v: any) => isPpbg(v.vital_type) && v.value_numeric && v.value_numeric >= 200)) {
       riskParts.push('post-meal glucose above target');
     }
-    if ((vitalsRes.data || []).some((v: any) => v.vital_type === 'fbg' && v.value_numeric && v.value_numeric >= 140)) {
+    if ((vitalsRes.data || []).some((v: any) => isFbg(v.vital_type) && v.value_numeric && v.value_numeric >= 140)) {
       riskParts.push('fasting glucose above target');
     }
     const riskSummary = riskParts.length > 0
