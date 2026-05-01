@@ -1,4 +1,3 @@
-import { useState } from "react";
 import ClinicianRoster from "./screens/ClinicianRoster";
 import PatientDetail from "./screens/PatientDetail";
 import ReasoningTracePanel from "./screens/ReasoningTracePanel";
@@ -6,46 +5,41 @@ import PatientDashboard from "./screens/PatientDashboard";
 import GuardianDashboard from "./screens/GuardianDashboard";
 import { DashboardProvider } from "./lib/dashboardData";
 
-const screens = {
-  roster: { label: "Clinician Roster", component: <ClinicianRoster /> },
-  detail: { label: "Patient Detail", component: <PatientDetail /> },
-  trace: { label: "Reasoning Trace", component: <ReasoningTracePanel /> },
-  patient: { label: "Patient Dashboard", component: <PatientDashboard /> },
-  guardian: { label: "Guardian Dashboard", component: <GuardianDashboard /> },
-} as const;
+type ScreenKey = "roster" | "detail" | "trace" | "patient" | "guardian";
 
-type ScreenKey = keyof typeof screens;
-
-function getPatientIdFromUrl(): string | undefined {
+function getQueryParam(name: string): string | undefined {
   if (typeof window === 'undefined') return undefined;
   const params = new URLSearchParams(window.location.search);
-  return params.get('patient_id') || undefined;
+  return params.get(name) || undefined;
+}
+
+function pickScreen(key: string | undefined): ScreenKey {
+  switch (key) {
+    case 'roster': case 'trace': case 'patient': case 'guardian': case 'detail':
+      return key;
+    default:
+      return 'detail';
+  }
+}
+
+function renderScreen(key: ScreenKey) {
+  switch (key) {
+    case 'roster':   return <ClinicianRoster />;
+    case 'trace':    return <ReasoningTracePanel />;
+    case 'patient':  return <PatientDashboard />;
+    case 'guardian': return <GuardianDashboard />;
+    default:         return <PatientDetail />;
+  }
 }
 
 export default function App() {
-  const [active, setActive] = useState<ScreenKey>("detail");
-  const patientId = getPatientIdFromUrl();
+  const active = pickScreen(getQueryParam('screen'));
+  const patientId = getQueryParam('patient_id');
 
   return (
     <DashboardProvider patientId={patientId}>
       <div className="min-h-screen bg-background">
-        <div className="fixed top-2 left-1/2 -translate-x-1/2 z-[100] bg-inverse-surface text-inverse-on-surface rounded-full px-2 py-1 flex gap-1 shadow-lg text-[11px]">
-          {(Object.keys(screens) as ScreenKey[]).map((key) => (
-            <button
-              key={key}
-              onClick={() => setActive(key)}
-              className={
-                "px-3 py-1 rounded-full transition-colors " +
-                (active === key
-                  ? "bg-primary-fixed text-on-primary-fixed font-semibold"
-                  : "hover:bg-white/10")
-              }
-            >
-              {screens[key].label}
-            </button>
-          ))}
-        </div>
-        {screens[active].component}
+        {renderScreen(active)}
       </div>
     </DashboardProvider>
   );

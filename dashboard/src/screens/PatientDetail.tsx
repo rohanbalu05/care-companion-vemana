@@ -85,53 +85,51 @@ export default function PatientDetail() {
             <div className="flex flex-col gap-6">
               <FadeIn delay={0}>
               <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 shadow-[0_2px_4px_rgba(28,25,23,0.02)]">
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-                  <div className="flex items-start gap-4">
-                    <div className="relative">
-                      <img alt="Asha Sharma" className="w-14 h-14 rounded-full object-cover ring-2 ring-error ring-offset-2 ring-offset-surface-container-lowest" data-alt="A professional headshot of a mature Indian woman with silver-streaked dark hair, warm expression, wearing a simple elegant kurta. Soft natural lighting, neutral background, clinical UI context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVzNJkS0aMlqLEYCqriwwatAhFXKbKQAxDHR94zZVX6j-61G8BW09TMm299l8DB-pO0SC7AwQsTS3dPQQpUkI61ZQhXZxZgrwuUigkSXXdp2602pUqtrDHzYM3BkOSbgqH1qqC0xWzwLGA4E2tTd5bmo5MZrgVJTAJanXUlUygf0AjSxGDWsnmXMeIBwXlY-xnJ1ForI4-6uUuIS0xJ0RtqpuDnoruo4l6al5xpF-aiV00g7mwZ1NJ3zw9Dx2eH-pVy1uJkSid5RV_" />
+                <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px_220px] items-start gap-6">
+                  <div className="flex items-start gap-4 min-w-0">
+                    <div className="relative w-20 h-20 rounded-full overflow-hidden ring-2 ring-error ring-offset-2 ring-offset-surface-container-lowest flex-shrink-0">
+                      <img alt="Asha Sharma" className="w-full h-full object-cover" data-alt="A professional headshot of a mature Indian woman with silver-streaked dark hair, warm expression, wearing a simple elegant kurta. Soft natural lighting, neutral background, clinical UI context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVzNJkS0aMlqLEYCqriwwatAhFXKbKQAxDHR94zZVX6j-61G8BW09TMm299l8DB-pO0SC7AwQsTS3dPQQpUkI61ZQhXZxZgrwuUigkSXXdp2602pUqtrDHzYM3BkOSbgqH1qqC0xWzwLGA4E2tTd5bmo5MZrgVJTAJanXUlUygf0AjSxGDWsnmXMeIBwXlY-xnJ1ForI4-6uUuIS0xJ0RtqpuDnoruo4l6al5xpF-aiV00g7mwZ1NJ3zw9Dx2eH-pVy1uJkSid5RV_" />
                     </div>
-                    <div>
+                    <div className="min-w-0 max-w-[520px]">
                       <h1 className="font-h1 text-h1 text-on-surface mb-1 flex items-center gap-2">
                         {patient?.full_name || (loading ? 'Loading…' : 'Patient')}
                         {patient && <span className="text-outline font-body-sm text-body-sm font-normal">{sexLabel}{patient.age != null ? `, ${patient.age}` : ''}</span>}
                       </h1>
-                      <div className="flex flex-wrap items-center gap-3 text-body-sm font-body-sm text-on-surface-variant mb-2">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm font-body-sm text-on-surface-variant mb-2">
                         <span className="font-medium text-on-surface">{patient?.diagnoses_label || '—'}</span>
                         <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
                         <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">call</span> {phoneText}</span>
                         <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
                         <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">supervisor_account</span> {guardianText}</span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 text-label font-label text-outline">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label font-label text-outline">
                         <span>Primary: {patient?.clinician_name || 'Dr. Priya Mehta'}</span>
                         <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
                         <span className="flex items-center gap-1 text-primary-container"><span className="material-symbols-outlined text-[14px]">chat</span> Last contact: {patient?.last_contact?.label || '—'}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-row-reverse items-center gap-6 min-w-[420px]">
-                    <div className="flex flex-col items-end gap-3">
-                      <div className={`px-3 py-1.5 rounded-full font-label text-label flex items-center gap-1.5 ${risky.pill}`}>
-                        <span className="material-symbols-outlined icon-fill text-[16px]">warning</span>
-                        {risky.label} RISK
-                      </div>
-                      <a className="text-primary text-label font-label flex items-center gap-1 hover:underline mt-1" href="#">View reasoning <span className="material-symbols-outlined text-[14px]">arrow_forward</span></a>
-                      <CallAshaButton patientId={ASHA_PATIENT_ID} />
+                  <div className="relative w-[200px] h-[200px] mx-auto">
+                    <svg className="w-full h-full overflow-visible" viewBox="-30 -30 220 220">
+                      <circle cx="80" cy="80" fill="none" r="60" stroke="#bdc9c6" strokeDasharray="2 2" strokeWidth="0.5"></circle>
+                      <circle cx="80" cy="80" fill="none" r="40" stroke="#bdc9c6" strokeDasharray="2 2" strokeWidth="0.5"></circle>
+                      <circle cx="80" cy="80" fill="none" r="20" stroke="#bdc9c6" strokeDasharray="2 2" strokeWidth="0.5"></circle>
+                      <line stroke="#bdc9c6" strokeWidth="0.5" x1="80" x2="80" y1="20" y2="140"></line>
+                      <line stroke="#bdc9c6" strokeWidth="0.5" x1="20" x2="140" y1="80" y2="80"></line>
+                      <polygon fill="#EA580C" fillOpacity="0.3" points="80,41.6 122.6,80 80,114.8 48.8,80" stroke="#EA580C" strokeWidth="2"></polygon>
+                      <text className="fill-outline font-label text-[10px]" textAnchor="middle" x="80" y="6">Cardiovascular 64</text>
+                      <text className="fill-outline font-label text-[10px]" textAnchor="start" x="148" y="83">Adherence 71</text>
+                      <text className="fill-outline font-label text-[10px]" textAnchor="middle" x="80" y="166">Metabolic 58</text>
+                      <text className="fill-outline font-label text-[10px]" textAnchor="end" x="12" y="83">Symptomatic 52</text>
+                    </svg>
+                  </div>
+                  <div className="flex flex-col items-stretch lg:items-end gap-3">
+                    <div className={`px-3 py-1.5 rounded-full font-label text-label flex items-center gap-1.5 self-start lg:self-end ${risky.pill}`}>
+                      <span className="material-symbols-outlined icon-fill text-[16px]">warning</span>
+                      {risky.label} RISK
                     </div>
-                    <div className="relative w-[160px] h-[160px]">
-                      <svg className="w-full h-full overflow-visible" viewBox="0 0 160 160">
-                        <circle cx="80" cy="80" fill="none" r="60" stroke="#bdc9c6" strokeDasharray="2 2" strokeWidth="0.5"></circle>
-                        <circle cx="80" cy="80" fill="none" r="40" stroke="#bdc9c6" strokeDasharray="2 2" strokeWidth="0.5"></circle>
-                        <circle cx="80" cy="80" fill="none" r="20" stroke="#bdc9c6" strokeDasharray="2 2" strokeWidth="0.5"></circle>
-                        <line stroke="#bdc9c6" strokeWidth="0.5" x1="80" x2="80" y1="20" y2="140"></line>
-                        <line stroke="#bdc9c6" strokeWidth="0.5" x1="20" x2="140" y1="80" y2="80"></line>
-                        <polygon fill="#EA580C" fillOpacity="0.3" points="80,41.6 122.6,80 80,114.8 48.8,80" stroke="#EA580C" strokeWidth="2"></polygon>
-                        <text className="fill-outline font-label text-[10px]" textAnchor="middle" x="80" y="12">Cardiovascular 64</text>
-                        <text className="fill-outline font-label text-[10px]" textAnchor="start" x="145" y="83">Adherence 71</text>
-                        <text className="fill-outline font-label text-[10px]" textAnchor="middle" x="80" y="155">Metabolic 58</text>
-                        <text className="fill-outline font-label text-[10px]" textAnchor="end" x="15" y="83">Symptomatic 52</text>
-                      </svg>
-                    </div>
+                    <a className="text-primary text-label font-label flex items-center gap-1 hover:underline" href="#">View reasoning <span className="material-symbols-outlined text-[14px]">arrow_forward</span></a>
+                    <CallAshaButton patientId={ASHA_PATIENT_ID} />
                   </div>
                 </div>
               </div>
