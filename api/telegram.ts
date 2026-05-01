@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { classifyImage } from '../lib/imageClassifier';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const SUPABASE_URL = process.env.SUPABASE_URL!;
@@ -7,10 +8,7 @@ const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE!;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const LLM_MODEL_FAST = process.env.LLM_MODEL_FAST || 'openai/gpt-4o-mini';
-const RAW_LLM_SMART = process.env.LLM_MODEL_SMART || 'google/gemini-2.5-flash';
-const LLM_MODEL_SMART = RAW_LLM_SMART.includes('gemini-2.5-flash-preview')
-  ? 'google/gemini-2.5-flash'
-  : RAW_LLM_SMART;
+const VISION_MODEL = 'anthropic/claude-sonnet-4';
 const DEMO_PATIENT_NAME = process.env.DEMO_PATIENT_NAME || 'Asha Sharma';
 const TG_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const TG_FILE_BASE = `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}`;
@@ -60,6 +58,56 @@ const staticMessages = {
     hi: `नुस्ख़ा साफ़ नहीं पढ़ पाई। कृपया एक साफ़ तस्वीर भेजें, या दवाइयों के नाम टाइप कर दें।`,
     kn: `ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್ ಸ್ಪಷ್ಟವಾಗಿ ಓದಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಸ್ಪಷ್ಟವಾದ ಫೋಟೋ ಕಳುಹಿಸಿ, ಅಥವಾ ಔಷಧಿಗಳ ಹೆಸರುಗಳನ್ನು ಟೈಪ್ ಮಾಡಿ.`,
     en: `Couldn't read this clearly — could you send a clearer photo, or type the medicine names?`
+  }[lang]),
+  bpRecorded: (sys: number, dia: number, pulse: number | null, lang: Lang, high: boolean, doc: string) => {
+    const pulseTxt = pulse != null ? `, pulse ${pulse}` : '';
+    if (high) {
+      return ({
+        hi: `मैंने आपका BP दर्ज किया: ${sys}/${dia}${pulseTxt}. ✅ यह रीडिंग ज़्यादा है — ${doc} को सूचित कर दिया जाएगा।`,
+        kn: `ನಿಮ್ಮ BP ದಾಖಲಿಸಿದ್ದೇನೆ: ${sys}/${dia}${pulseTxt}. ✅ ಈ ರೀಡಿಂಗ್ ಹೆಚ್ಚಿದೆ — ${doc} ಗೆ ತಿಳಿಸಲಾಗುತ್ತದೆ.`,
+        en: `I've recorded your BP: ${sys}/${dia}${pulseTxt}. ✅ This reading is high — ${doc} will be alerted.`
+      } as const)[lang];
+    }
+    return ({
+      hi: `मैंने आपका BP दर्ज किया: ${sys}/${dia}${pulseTxt}. ✅`,
+      kn: `ನಿಮ್ಮ BP ದಾಖಲಿಸಿದ್ದೇನೆ: ${sys}/${dia}${pulseTxt}. ✅`,
+      en: `I've recorded your BP: ${sys}/${dia}${pulseTxt}. ✅`
+    } as const)[lang];
+  },
+  bpUnreadable: (lang: Lang) => ({
+    hi: `BP की रीडिंग साफ़ नहीं दिख रही। कृपया दोबारा फोटो भेजें — पूरी स्क्रीन के नंबर साफ़ दिखें।`,
+    kn: `BP ರೀಡಿಂಗ್ ಸ್ಪಷ್ಟವಾಗಿ ಕಾಣುತ್ತಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಫೋಟೋ ಕಳುಹಿಸಿ — ಪರದೆಯ ಎಲ್ಲಾ ಸಂಖ್ಯೆಗಳು ಸ್ಪಷ್ಟವಾಗಿ ಕಾಣಬೇಕು.`,
+    en: `Couldn't read your BP clearly — please retake the photo with the numbers fully visible.`
+  }[lang]),
+  glucoseRecordedAskMeal: (val: number, lang: Lang) => ({
+    hi: `मैंने आपकी शुगर दर्ज की: ${val} mg/dL. क्या यह खाने से पहले (fasting) थी या खाने के बाद (post-meal)? कृपया जवाब दें।`,
+    kn: `ನಿಮ್ಮ ಸಕ್ಕರೆ ಮಟ್ಟ ದಾಖಲಿಸಿದ್ದೇನೆ: ${val} mg/dL. ಇದು ಊಟಕ್ಕೆ ಮೊದಲು (fasting) ಆಗಿತ್ತೋ ಅಥವಾ ಊಟದ ನಂತರ (post-meal) ಆಗಿತ್ತೋ?`,
+    en: `I've recorded your glucose: ${val} mg/dL. Was this before food (fasting) or after food (post-meal)?`
+  }[lang]),
+  glucoseUpdatedFasting: (val: number, lang: Lang) => ({
+    hi: `धन्यवाद — मैंने इसे fasting शुगर के रूप में दर्ज कर लिया (${val} mg/dL). ✅`,
+    kn: `ಧನ್ಯವಾದಗಳು — ನಾನು ಇದನ್ನು fasting ಸಕ್ಕರೆಯಾಗಿ ದಾಖಲಿಸಿದ್ದೇನೆ (${val} mg/dL). ✅`,
+    en: `Thanks — recorded as fasting glucose (${val} mg/dL). ✅`
+  }[lang]),
+  glucoseUpdatedPostprandial: (val: number, lang: Lang) => ({
+    hi: `धन्यवाद — मैंने इसे post-meal शुगर के रूप में दर्ज कर लिया (${val} mg/dL). ✅`,
+    kn: `ಧನ್ಯವಾದಗಳು — ನಾನು ಇದನ್ನು post-meal ಸಕ್ಕರೆಯಾಗಿ ದಾಖಲಿಸಿದ್ದೇನೆ (${val} mg/dL). ✅`,
+    en: `Thanks — recorded as post-meal glucose (${val} mg/dL). ✅`
+  }[lang]),
+  glucoseUnreadable: (lang: Lang) => ({
+    hi: `शुगर की रीडिंग साफ़ नहीं दिख रही। कृपया दोबारा फोटो भेजें।`,
+    kn: `ಸಕ್ಕರೆ ರೀಡಿಂಗ್ ಸ್ಪಷ್ಟವಾಗಿ ಕಾಣುತ್ತಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಫೋಟೋ ಕಳುಹಿಸಿ.`,
+    en: `Couldn't read your glucose reading clearly — please retake the photo.`
+  }[lang]),
+  photoUnclear: (lang: Lang) => ({
+    hi: `तस्वीर साफ़ नहीं है। कृपया अच्छी रोशनी में दोबारा भेजें।`,
+    kn: `ಫೋಟೋ ಸ್ಪಷ್ಟವಾಗಿಲ್ಲ. ದಯವಿಟ್ಟು ಉತ್ತಮ ಬೆಳಕಿನಲ್ಲಿ ಮತ್ತೊಮ್ಮೆ ಕಳುಹಿಸಿ.`,
+    en: `I can see you're trying to share something, but the photo isn't clear enough. Could you retake it with better lighting?`
+  }[lang]),
+  photoOther: (subject: string, lang: Lang) => ({
+    hi: `मैं अभी सिर्फ़ नुस्ख़े, BP मॉनिटर रीडिंग, और ग्लुकोमीटर रीडिंग की तस्वीरें पढ़ सकती हूँ। यह ${subject} जैसा लग रहा है — कृपया उन तीनों में से कुछ भेजें।`,
+    kn: `ನಾನು ಸದ್ಯಕ್ಕೆ ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್, BP ಮಾನಿಟರ್, ಮತ್ತು ಗ್ಲುಕೋಮೀಟರ್ ಫೋಟೋಗಳನ್ನು ಮಾತ್ರ ಓದಬಲ್ಲೆ. ಇದು ${subject} ರೀತಿ ಕಾಣುತ್ತಿದೆ — ದಯವಿಟ್ಟು ಆ ಮೂರರಲ್ಲಿ ಒಂದನ್ನು ಕಳುಹಿಸಿ.`,
+    en: `I can only process prescriptions, BP monitor readings, and glucometer readings right now. This looks like a ${subject} — please send one of those instead.`
   }[lang]),
   invalid: `This link looks expired or already used. Please contact your clinic for a fresh link. 🙏`,
   hint: `Hello! 👋 To begin, please open the secure link your clinic shared with you. If you don't have it, please contact your clinic.`
@@ -253,7 +301,7 @@ function stripJsonFences(s: string): string {
 
 async function callOcrVision(imageDataUrl: string): Promise<OcrOutput> {
   const requestBody = {
-    model: LLM_MODEL_SMART,
+    model: VISION_MODEL,
     messages: [
       { role: 'system', content: OCR_SYSTEM_PROMPT },
       { role: 'user', content: [
@@ -276,7 +324,7 @@ async function callOcrVision(imageDataUrl: string): Promise<OcrOutput> {
   });
   if (!res.ok) {
     const txt = await res.text();
-    console.error('OCR vision HTTP', res.status, 'model=', LLM_MODEL_SMART, 'body=', txt.slice(0, 500));
+    console.error('OCR vision HTTP', res.status, 'model=', VISION_MODEL, 'body=', txt.slice(0, 500));
     throw new Error(`OCR vision ${res.status}`);
   }
   const json: any = await res.json();
@@ -314,6 +362,117 @@ function parseDose(s: string | null | undefined): { amount: number | null; unit:
   const unit = u === 'mcg' ? 'mg' : u === 'units' || u === 'unit' || u === 'iu' ? 'unit' : (u as 'mg' | 'g' | 'ml');
   const amount = u === 'mcg' ? parseFloat(m[1]) / 1000 : parseFloat(m[1]);
   return { amount, unit };
+}
+
+const TEMPLATE_PLACEHOLDER_RE = /\b(?:demo|sample|placeholder|medicine\s*\d|drug\s*\d|xxx+|name\s+of\s+medicine|generic\s+name|brand\s+name)\b/i;
+
+function looksLikePlaceholderDrug(name: string | null | undefined): boolean {
+  if (!name) return true;
+  const trimmed = name.trim();
+  if (trimmed.length < 2) return true;
+  if (TEMPLATE_PLACEHOLDER_RE.test(trimmed)) return true;
+  if (/^(?:medicine|drug|tablet|tab)\s*\d+$/i.test(trimmed)) return true;
+  return false;
+}
+
+type BpExtraction = {
+  bp_systolic: number | null;
+  bp_diastolic: number | null;
+  pulse: number | null;
+  reading_visible: boolean;
+  confidence: 'high' | 'medium' | 'low';
+};
+
+const BP_VISION_PROMPT = `You are reading a digital blood pressure monitor display. Extract the values shown. Output ONLY valid JSON:
+{
+  "bp_systolic": number|null,
+  "bp_diastolic": number|null,
+  "pulse": number|null,
+  "reading_visible": boolean,
+  "confidence": "high"|"medium"|"low"
+}
+The systolic value (SYS) is the larger top number. The diastolic value (DIA) is the middle number. Pulse (PULSE/min) is usually at the bottom. If any value is unreadable, set it to null. If the display is off or no reading is visible, set reading_visible to false.`;
+
+async function callBpVision(imageDataUrl: string): Promise<BpExtraction> {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://care-companion-vemana.vercel.app',
+      'X-Title': 'Care Companion BP OCR'
+    },
+    body: JSON.stringify({
+      model: VISION_MODEL,
+      messages: [
+        { role: 'system', content: BP_VISION_PROMPT },
+        { role: 'user', content: [
+          { type: 'image_url', image_url: { url: imageDataUrl } },
+          { type: 'text', text: 'Extract the BP reading from this monitor display.' }
+        ] }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1
+    })
+  });
+  if (!res.ok) {
+    console.error('BP vision HTTP', res.status, (await res.text()).slice(0, 400));
+    throw new Error(`BP vision ${res.status}`);
+  }
+  const j: any = await res.json();
+  const content: string | undefined = j?.choices?.[0]?.message?.content;
+  if (!content) throw new Error('BP vision empty content');
+  return JSON.parse(stripJsonFences(content)) as BpExtraction;
+}
+
+type GlucoseExtraction = {
+  glucose_value: number | null;
+  unit: 'mg/dL' | 'mmol/L' | null;
+  reading_time: 'fasting' | 'post_meal' | 'random' | null;
+  reading_visible: boolean;
+  confidence: 'high' | 'medium' | 'low';
+};
+
+const GLUCOSE_VISION_PROMPT = `You are reading a handheld blood glucose meter display. Extract the reading. Output ONLY valid JSON:
+{
+  "glucose_value": number|null,
+  "unit": "mg/dL"|"mmol/L"|null,
+  "reading_time": "fasting"|"post_meal"|"random"|null,
+  "reading_visible": boolean,
+  "confidence": "high"|"medium"|"low"
+}
+Most Indian glucometers show mg/dL. If the display shows mmol/L, convert to mg/dL by multiplying by 18 and set unit to "mg/dL" with the converted value. If meal context (fasting/post-meal) is visible on the display, capture it; otherwise leave reading_time as null.`;
+
+async function callGlucoseVision(imageDataUrl: string): Promise<GlucoseExtraction> {
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://care-companion-vemana.vercel.app',
+      'X-Title': 'Care Companion Glucose OCR'
+    },
+    body: JSON.stringify({
+      model: VISION_MODEL,
+      messages: [
+        { role: 'system', content: GLUCOSE_VISION_PROMPT },
+        { role: 'user', content: [
+          { type: 'image_url', image_url: { url: imageDataUrl } },
+          { type: 'text', text: 'Extract the glucose reading from this meter display.' }
+        ] }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1
+    })
+  });
+  if (!res.ok) {
+    console.error('Glucose vision HTTP', res.status, (await res.text()).slice(0, 400));
+    throw new Error(`Glucose vision ${res.status}`);
+  }
+  const j: any = await res.json();
+  const content: string | undefined = j?.choices?.[0]?.message?.content;
+  if (!content) throw new Error('Glucose vision empty content');
+  return JSON.parse(stripJsonFences(content)) as GlucoseExtraction;
 }
 
 async function transcribeWhisper(buffer: Buffer, fileName: string, mime: string): Promise<string> {
@@ -409,6 +568,10 @@ async function persistExtractions(
 async function handleLinkedTextMessage(patient: LinkedPatient, msg: any, sourceLabel: string) {
   const rawText: string = (msg.text || '').trim();
   const telegramMessageId: number = msg.message_id;
+  if (rawText.length > 0 && rawText.length < 80) {
+    const resolved = await maybeResolveGlucoseMealContext(patient, rawText);
+    if (resolved) return;
+  }
   try {
     const ctx = await buildPatientContext(patient.id);
     const llm = await callOpenRouter(ctx, rawText);
@@ -445,26 +608,13 @@ async function handleVoiceMessage(patient: LinkedPatient, msg: any) {
   }
 }
 
-async function handlePhotoMessage(patient: LinkedPatient, msg: any) {
-  let fileId: string | null = null;
-  let mimeHint = 'image/jpeg';
-  if (Array.isArray(msg.photo) && msg.photo.length > 0) {
-    fileId = msg.photo[msg.photo.length - 1].file_id;
-  } else if (msg.document && typeof msg.document.mime_type === 'string' && msg.document.mime_type.startsWith('image/')) {
-    fileId = msg.document.file_id;
-    mimeHint = msg.document.mime_type;
-  }
-  if (!fileId) return;
+async function extractPrescription(patient: LinkedPatient, dataUrl: string) {
   const lang = (patient.preferred_language || 'en') as Lang;
-
   let ocr: OcrOutput;
   try {
-    const { buffer, mime } = await getTelegramFileBuffer(fileId);
-    const usedMime = mime.startsWith('image/') ? mime : mimeHint;
-    const dataUrl = `data:${usedMime};base64,${buffer.toString('base64')}`;
     ocr = await callOcrVision(dataUrl);
   } catch (err) {
-    console.error('Photo OCR pipeline failure', err);
+    console.error('Prescription OCR failure', err);
     await sendTelegramText(patient.telegram_chat_id, staticMessages.ocrRetry(lang));
     return;
   }
@@ -474,7 +624,14 @@ async function handlePhotoMessage(patient: LinkedPatient, msg: any) {
     return;
   }
 
-  if (!Array.isArray(ocr.medications) || ocr.medications.length === 0) {
+  const realMeds = (Array.isArray(ocr.medications) ? ocr.medications : []).filter(m => !looksLikePlaceholderDrug(m?.name));
+  const placeholderCount = (ocr.medications?.length || 0) - realMeds.length;
+  if (placeholderCount > 0 && realMeds.length === 0) {
+    console.log('prescription rejected as template/placeholder', { placeholderCount, totalSeen: ocr.medications?.length || 0 });
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.ocrRetry(lang));
+    return;
+  }
+  if (realMeds.length === 0) {
     await sendTelegramText(patient.telegram_chat_id, staticMessages.notAPrescription(lang));
     return;
   }
@@ -483,19 +640,20 @@ async function handlePhotoMessage(patient: LinkedPatient, msg: any) {
   try {
     const presRes = await supabase.from('prescriptions').insert({
       patient_id: patient.id,
-      parsed_medications: ocr,
+      parsed_medications: { ...ocr, medications: realMeds },
       status: 'pending_review',
       notes: [
         ocr.confidence ? `ocr_confidence=${ocr.confidence}` : null,
         ocr.doctor_name ? `doctor=${ocr.doctor_name}` : null,
-        ocr.clinic_name ? `clinic=${ocr.clinic_name}` : null
+        ocr.clinic_name ? `clinic=${ocr.clinic_name}` : null,
+        placeholderCount > 0 ? `placeholders_filtered=${placeholderCount}` : null
       ].filter(Boolean).join(' | ') || null
     }).select('id').single();
     prescriptionId = presRes.data?.id ?? null;
   } catch (e) { console.error('prescriptions insert failed', e); }
 
   const drugLines: string[] = [];
-  for (const m of ocr.medications) {
+  for (const m of realMeds) {
     const { amount, unit } = parseDose(m.dose);
     const freqCode = mapFrequency(m.frequency);
     try {
@@ -519,8 +677,193 @@ async function handlePhotoMessage(patient: LinkedPatient, msg: any) {
 
   await sendTelegramText(
     patient.telegram_chat_id,
-    staticMessages.prescriptionConfirm(ocr.medications.length, drugLines.join('\n'), lang, ocr.confidence === 'low')
+    staticMessages.prescriptionConfirm(realMeds.length, drugLines.join('\n'), lang, ocr.confidence === 'low')
   );
+  fireAndForgetRiskEval(patient.id);
+}
+
+async function extractBP(patient: LinkedPatient, dataUrl: string) {
+  const lang = (patient.preferred_language || 'en') as Lang;
+  let bp: BpExtraction;
+  try {
+    bp = await callBpVision(dataUrl);
+  } catch (err) {
+    console.error('BP vision failure', err);
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.bpUnreadable(lang));
+    return;
+  }
+
+  const sys = bp.bp_systolic;
+  const dia = bp.bp_diastolic;
+  const pulse = bp.pulse;
+  const validSys = typeof sys === 'number' && sys >= 60 && sys <= 260 ? sys : null;
+  const validDia = typeof dia === 'number' && dia >= 30 && dia <= 180 ? dia : null;
+  const validPulse = typeof pulse === 'number' && pulse >= 30 && pulse <= 200 ? pulse : null;
+
+  if (!bp.reading_visible || validSys == null || validDia == null) {
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.bpUnreadable(lang));
+    return;
+  }
+
+  const now = new Date().toISOString();
+  try {
+    await supabase.from('vitals').insert({
+      patient_id: patient.id,
+      vital_type: 'bp',
+      value_systolic: validSys,
+      value_diastolic: validDia,
+      unit: 'mmHg',
+      source: 'photo',
+      recorded_at: now
+    });
+  } catch (e) { console.error('BP vitals insert failed', e); }
+
+  if (validPulse != null) {
+    try {
+      await supabase.from('vitals').insert({
+        patient_id: patient.id,
+        vital_type: 'heart_rate',
+        value_numeric: validPulse,
+        unit: 'bpm',
+        source: 'photo',
+        recorded_at: now
+      });
+    } catch (e) { console.error('Pulse vitals insert failed', e); }
+  }
+
+  const high = validSys >= 140 || validDia >= 90;
+  await sendTelegramText(
+    patient.telegram_chat_id,
+    staticMessages.bpRecorded(validSys, validDia, validPulse, lang, high, 'Dr. Priya Mehta')
+  );
+  fireAndForgetRiskEval(patient.id);
+}
+
+async function extractGlucose(patient: LinkedPatient, dataUrl: string) {
+  const lang = (patient.preferred_language || 'en') as Lang;
+  let g: GlucoseExtraction;
+  try {
+    g = await callGlucoseVision(dataUrl);
+  } catch (err) {
+    console.error('Glucose vision failure', err);
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.glucoseUnreadable(lang));
+    return;
+  }
+
+  const value = g.glucose_value;
+  if (!g.reading_visible || typeof value !== 'number' || value < 30 || value > 600) {
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.glucoseUnreadable(lang));
+    return;
+  }
+
+  const vitalType = g.reading_time === 'fasting' ? 'glucose_fasting'
+    : g.reading_time === 'post_meal' ? 'glucose_postprandial'
+    : 'glucose_random';
+
+  try {
+    await supabase.from('vitals').insert({
+      patient_id: patient.id,
+      vital_type: vitalType,
+      value_numeric: value,
+      unit: 'mg/dL',
+      source: 'photo',
+      recorded_at: new Date().toISOString()
+    });
+  } catch (e) { console.error('Glucose vitals insert failed', e); }
+
+  if (vitalType === 'glucose_random') {
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.glucoseRecordedAskMeal(value, lang));
+  } else {
+    const fasting = vitalType === 'glucose_fasting';
+    await sendTelegramText(
+      patient.telegram_chat_id,
+      fasting ? staticMessages.glucoseUpdatedFasting(value, lang) : staticMessages.glucoseUpdatedPostprandial(value, lang)
+    );
+  }
+  fireAndForgetRiskEval(patient.id);
+}
+
+async function maybeResolveGlucoseMealContext(patient: LinkedPatient, rawText: string): Promise<boolean> {
+  const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from('vitals')
+    .select('id, value_numeric, recorded_at')
+    .eq('patient_id', patient.id)
+    .eq('vital_type', 'glucose_random')
+    .eq('source', 'photo')
+    .gte('recorded_at', tenMinAgo)
+    .order('recorded_at', { ascending: false })
+    .limit(1);
+  const row = (data || [])[0];
+  if (!row) return false;
+
+  const lower = rawText.toLowerCase().trim();
+  const fastingHits = /\b(fasting|fast|empty\s*stomach|before\s*food|before\s*meal|upvas|khali\s*pet|bhojan\s*ke\s*pehle)\b/.test(lower);
+  const postHits = /\b(post[\s-]*meal|after\s*food|after\s*eating|post[\s-]*prandial|khane\s*ke\s*baad|baad\s*mein|after\s*lunch|after\s*dinner|after\s*breakfast)\b/.test(lower);
+  if (!fastingHits && !postHits) return false;
+  const newType = fastingHits ? 'glucose_fasting' : 'glucose_postprandial';
+
+  const lang = (patient.preferred_language || 'en') as Lang;
+  try {
+    await supabase.from('vitals').update({ vital_type: newType }).eq('id', row.id);
+    await sendTelegramText(
+      patient.telegram_chat_id,
+      newType === 'glucose_fasting'
+        ? staticMessages.glucoseUpdatedFasting(Number(row.value_numeric), lang)
+        : staticMessages.glucoseUpdatedPostprandial(Number(row.value_numeric), lang)
+    );
+    fireAndForgetRiskEval(patient.id);
+    return true;
+  } catch (e) {
+    console.error('glucose meal-context update failed', e);
+    return false;
+  }
+}
+
+async function handlePhotoMessage(patient: LinkedPatient, msg: any) {
+  let fileId: string | null = null;
+  let mimeHint = 'image/jpeg';
+  if (Array.isArray(msg.photo) && msg.photo.length > 0) {
+    fileId = msg.photo[msg.photo.length - 1].file_id;
+  } else if (msg.document && typeof msg.document.mime_type === 'string' && msg.document.mime_type.startsWith('image/')) {
+    fileId = msg.document.file_id;
+    mimeHint = msg.document.mime_type;
+  }
+  if (!fileId) return;
+  const lang = (patient.preferred_language || 'en') as Lang;
+
+  let dataUrl: string;
+  try {
+    const { buffer, mime } = await getTelegramFileBuffer(fileId);
+    const usedMime = mime.startsWith('image/') ? mime : mimeHint;
+    dataUrl = `data:${usedMime};base64,${buffer.toString('base64')}`;
+  } catch (err) {
+    console.error('photo download failure', err);
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.photoUnclear(lang));
+    return;
+  }
+
+  const cls = await classifyImage(dataUrl);
+  console.log('image classified', { type: cls.type, confidence: cls.confidence, subject: cls.detected_subject });
+
+  switch (cls.type) {
+    case 'prescription':
+      await extractPrescription(patient, dataUrl);
+      return;
+    case 'bp_monitor':
+      await extractBP(patient, dataUrl);
+      return;
+    case 'glucometer':
+      await extractGlucose(patient, dataUrl);
+      return;
+    case 'unclear':
+      await sendTelegramText(patient.telegram_chat_id, staticMessages.photoUnclear(lang));
+      return;
+    case 'other':
+    default:
+      await sendTelegramText(patient.telegram_chat_id, staticMessages.photoOther(cls.detected_subject || 'photo', lang));
+      return;
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

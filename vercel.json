@@ -4,7 +4,7 @@
   "outputDirectory": "dashboard/dist",
   "framework": null,
   "functions": {
-    "api/telegram.ts": { "maxDuration": 30 },
+    "api/telegram.ts": { "maxDuration": 60 },
     "api/health.ts": { "maxDuration": 5 },
     "api/vapi-context.ts": { "maxDuration": 5 },
     "api/dashboard-data.ts": { "maxDuration": 5 },
