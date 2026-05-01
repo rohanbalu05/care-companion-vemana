@@ -330,6 +330,15 @@ async function transcribeWhisper(buffer: Buffer, fileName: string, mime: string)
   return (json?.text || '').trim();
 }
 
+function fireAndForgetRiskEval(patientId: string) {
+  const host = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://care-companion-vemana.vercel.app';
+  fetch(`${host}/api/evaluate-risk`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ patient_id: patientId })
+  }).catch(err => console.error('risk eval trigger failed', err instanceof Error ? err.message : err));
+}
+
 async function persistExtractions(
   patient: LinkedPatient,
   rawText: string,
@@ -405,6 +414,7 @@ async function handleLinkedTextMessage(patient: LinkedPatient, msg: any, sourceL
     const llm = await callOpenRouter(ctx, rawText);
     await persistExtractions(patient, rawText, telegramMessageId, llm);
     await sendTelegramText(patient.telegram_chat_id, llm.reply_text);
+    fireAndForgetRiskEval(patient.id);
   } catch (err) {
     console.error(`LLM brain failure (${sourceLabel})`, { text: rawText, error: String(err) });
     await sendTelegramText(
@@ -428,6 +438,7 @@ async function handleVoiceMessage(patient: LinkedPatient, msg: any) {
     const llm = await callOpenRouter(ctx, transcript);
     await persistExtractions(patient, transcript, msg.message_id, llm);
     await sendTelegramText(patient.telegram_chat_id, `🎙️ I heard: "${transcript}"\n\n${llm.reply_text}`);
+    fireAndForgetRiskEval(patient.id);
   } catch (err) {
     console.error('Voice handler failure', err);
     await sendTelegramText(patient.telegram_chat_id, staticMessages.fallbackAck(patient.full_name, patient.preferred_language));
