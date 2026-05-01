@@ -58,7 +58,11 @@ const GLU_THRESH_Y = yForGlu(140);
 const bpPath  = bpData .map((p, i) => `${i === 0 ? "M" : "L"} ${xForDay(i + 1)} ${yForBP(p.sys)}`).join(" ");
 const gluPath = fbgData.map((g, i) => `${i === 0 ? "M" : "L"} ${xForDay(i + 1)} ${yForGlu(g)}`).join(" ");
 
-export function RiskStoryTimeline() {
+type RiskStoryTimelineProps = {
+  onMarkerClick?: (eventId: string) => void;
+};
+
+export function RiskStoryTimeline({ onMarkerClick }: RiskStoryTimelineProps = {}) {
   const [hoverDay, setHoverDay] = useState<number | null>(null);
 
   function onMove(e: MouseEvent<SVGSVGElement>) {
@@ -186,9 +190,10 @@ export function RiskStoryTimeline() {
                 stiffness: 400,
                 damping: 12,
               }}
-              style={{ transformBox: "fill-box", transformOrigin: "center" }}
+              style={{ transformBox: "fill-box", transformOrigin: "center", cursor: onMarkerClick ? "pointer" : "default" }}
+              onClick={() => onMarkerClick?.(`day-${m.day}`)}
             >
-              <title>{`Day ${m.day}: ${m.label}`}</title>
+              <title>{`Day ${m.day}: ${m.label}${onMarkerClick ? " (click for reasoning)" : ""}`}</title>
             </motion.circle>
           ))}
 

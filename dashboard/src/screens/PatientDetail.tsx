@@ -1,11 +1,17 @@
+import { useState } from "react";
 import { FadeIn } from "../components/FadeIn";
 import RiskStoryTimeline from "../components/RiskStoryTimeline";
 import CallAshaButton from "../components/CallAshaButton";
+import ReasoningTracePanel from "./ReasoningTracePanel";
 import { useDashboard, riskColor } from "../lib/dashboardData";
 
 const ASHA_PATIENT_ID = "5cf64ecc-0b6a-4cea-b02b-85605a6f5f03";
 
-export default function PatientDetail() {
+export default function PatientDetail({ initialPanelOpen = false }: { initialPanelOpen?: boolean }) {
+  const [panelOpen, setPanelOpen] = useState(initialPanelOpen);
+  const [panelEventId, setPanelEventId] = useState<string | null>(null);
+  const openPanel = (eventId?: string) => { setPanelEventId(eventId || null); setPanelOpen(true); };
+  const closePanel = () => setPanelOpen(false);
   const { data, loading, error } = useDashboard();
   const patient = data?.patient;
   const guardian = data?.guardian;
@@ -128,13 +134,13 @@ export default function PatientDetail() {
                       <span className="material-symbols-outlined icon-fill text-[16px]">warning</span>
                       {risky.label} RISK
                     </div>
-                    <a className="text-primary text-label font-label flex items-center gap-1 hover:underline" href="#">View reasoning <span className="material-symbols-outlined text-[14px]">arrow_forward</span></a>
+                    <button onClick={() => openPanel()} className="text-primary text-label font-label flex items-center gap-1 hover:underline cursor-pointer bg-transparent border-0 p-0">View reasoning <span className="material-symbols-outlined text-[14px]">arrow_forward</span></button>
                     <CallAshaButton patientId={ASHA_PATIENT_ID} />
                   </div>
                 </div>
               </div>
               </FadeIn>
-              <RiskStoryTimeline />
+              <RiskStoryTimeline onMarkerClick={(eventId) => openPanel(eventId)} />
             </div>
             <FadeIn delay={0.2}>
             <div className="flex flex-col gap-4">
@@ -180,6 +186,7 @@ export default function PatientDetail() {
           </div>
         </main>
       </div>
+      <ReasoningTracePanel isOpen={panelOpen} onClose={closePanel} eventId={panelEventId} />
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import ClinicianRoster from "./screens/ClinicianRoster";
 import PatientDetail from "./screens/PatientDetail";
-import ReasoningTracePanel from "./screens/ReasoningTracePanel";
 import PatientDashboard from "./screens/PatientDashboard";
 import GuardianDashboard from "./screens/GuardianDashboard";
 import { DashboardProvider } from "./lib/dashboardData";
@@ -25,7 +24,7 @@ function pickScreen(key: string | undefined): ScreenKey {
 function renderScreen(key: ScreenKey) {
   switch (key) {
     case 'roster':   return <ClinicianRoster />;
-    case 'trace':    return <ReasoningTracePanel />;
+    case 'trace':    return <PatientDetail initialPanelOpen={true} />;
     case 'patient':  return <PatientDashboard />;
     case 'guardian': return <GuardianDashboard />;
     default:         return <PatientDetail />;
