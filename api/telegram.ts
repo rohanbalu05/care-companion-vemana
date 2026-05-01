@@ -7,7 +7,10 @@ const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE!;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const LLM_MODEL_FAST = process.env.LLM_MODEL_FAST || 'openai/gpt-4o-mini';
-const LLM_MODEL_SMART = process.env.LLM_MODEL_SMART || 'google/gemini-2.5-flash-preview';
+const RAW_LLM_SMART = process.env.LLM_MODEL_SMART || 'google/gemini-2.5-flash';
+const LLM_MODEL_SMART = RAW_LLM_SMART.includes('gemini-2.5-flash-preview')
+  ? 'google/gemini-2.5-flash'
+  : RAW_LLM_SMART;
 const DEMO_PATIENT_NAME = process.env.DEMO_PATIENT_NAME || 'Asha Sharma';
 const TG_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const TG_FILE_BASE = `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}`;
@@ -29,11 +32,11 @@ const staticMessages = {
     kn: `ಸಿಕ್ಕಿತು, ${name}. ನಾನು ದಾಖಲಿಸಿದ್ದೇನೆ, ಡಾಕ್ಟರ್‌ಗೆ ತಿಳಿಸುತ್ತೇನೆ. 🙏`,
     en: `Got it, ${name}. I've noted this and will keep your doctor posted. 🙏`
   }[lang]),
-  prescriptionConfirm: (drugList: string, lang: Lang, lowConfidence: boolean) => {
+  prescriptionConfirm: (count: number, drugList: string, lang: Lang, lowConfidence: boolean) => {
     const base = {
-      hi: `मुझे आपका नुस्ख़ा मिल गया:\n${drugList}\nDr. Priya Mehta को सूचित कर दिया गया है ✅`,
-      kn: `ನಿಮ್ಮ ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್ ಸಿಕ್ಕಿತು:\n${drugList}\nDr. Priya Mehta ಗೆ ತಿಳಿಸಲಾಗಿದೆ ✅`,
-      en: `I've got your prescription:\n${drugList}\nDr. Priya Mehta has been notified ✅`
+      hi: `मैंने आपके नुस्ख़े से ${count} दवा${count === 1 ? '' : 'इयाँ'} दर्ज की:\n${drugList}\nसमय पर याद दिलाती रहूँगी। Dr. Priya Mehta को सूचित कर दिया गया है ✅`,
+      kn: `ನಿಮ್ಮ ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್‌ನಿಂದ ${count} ಔಷಧ${count === 1 ? '' : 'ಗಳನ್ನು'} ದಾಖಲಿಸಿದ್ದೇನೆ:\n${drugList}\nಸರಿಯಾದ ಸಮಯಕ್ಕೆ ನೆನಪಿಸುತ್ತೇನೆ. Dr. Priya Mehta ಗೆ ತಿಳಿಸಲಾಗಿದೆ ✅`,
+      en: `I've recorded ${count} medicine${count === 1 ? '' : 's'} from your prescription:\n${drugList}\nI'll remind you at the right times. Dr. Priya Mehta has been notified ✅`
     }[lang];
     if (!lowConfidence) return base;
     const tail = {
@@ -47,6 +50,16 @@ const staticMessages = {
     hi: `यह नुस्ख़े जैसा नहीं लग रहा। कृपया अपने प्रिंटेड प्रेसक्रिप्शन की साफ़ तस्वीर भेजें।`,
     kn: `ಇದು ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್‌ನಂತೆ ತೋರುತ್ತಿಲ್ಲ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಮುದ್ರಿತ ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್‌ನ ಸ್ಪಷ್ಟ ಫೋಟೋ ಕಳುಹಿಸಿ.`,
     en: `This doesn't look like a prescription. Please send a clear photo of your printed prescription.`
+  }[lang]),
+  handwrittenGuard: (lang: Lang) => ({
+    hi: `मैं अभी सिर्फ़ प्रिंटेड प्रेसक्रिप्शन पढ़ सकती हूँ। कृपया दवाइयों के नाम टाइप कर दें, या डॉक्टर से प्रिंटेड कॉपी माँगें।`,
+    kn: `ನಾನು ಸದ್ಯಕ್ಕೆ ಮುದ್ರಿತ ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್‌ಗಳನ್ನು ಮಾತ್ರ ಓದಬಲ್ಲೆ. ದಯವಿಟ್ಟು ಔಷಧಿಗಳ ಹೆಸರುಗಳನ್ನು ಟೈಪ್ ಮಾಡಿ, ಅಥವಾ ಡಾಕ್ಟರ್‌ನಿಂದ ಮುದ್ರಿತ ಪ್ರತಿಯನ್ನು ಕೇಳಿ.`,
+    en: `I can only read printed prescriptions right now. Please type the medicine names, or ask your doctor for a printed copy.`
+  }[lang]),
+  ocrRetry: (lang: Lang) => ({
+    hi: `नुस्ख़ा साफ़ नहीं पढ़ पाई। कृपया एक साफ़ तस्वीर भेजें, या दवाइयों के नाम टाइप कर दें।`,
+    kn: `ಪ್ರಿಸ್ಕ್ರಿಪ್ಶನ್ ಸ್ಪಷ್ಟವಾಗಿ ಓದಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಸ್ಪಷ್ಟವಾದ ಫೋಟೋ ಕಳುಹಿಸಿ, ಅಥವಾ ಔಷಧಿಗಳ ಹೆಸರುಗಳನ್ನು ಟೈಪ್ ಮಾಡಿ.`,
+    en: `Couldn't read this clearly — could you send a clearer photo, or type the medicine names?`
   }[lang]),
   invalid: `This link looks expired or already used. Please contact your clinic for a fresh link. 🙏`,
   hint: `Hello! 👋 To begin, please open the secure link your clinic shared with you. If you don't have it, please contact your clinic.`
@@ -104,16 +117,20 @@ type LlmOutput = {
   reply_text: string;
 };
 
+type OcrMedication = {
+  name: string;
+  dose: string;
+  frequency: string;
+  duration: string | null;
+  instructions: string | null;
+};
+
 type OcrOutput = {
-  is_prescription: boolean;
-  medications: Array<{
-    drug_name: string;
-    dose_mg: number | null;
-    frequency: 'OD' | 'BD' | 'TDS' | 'QID' | 'SOS' | 'other';
-    route: 'oral' | 'topical' | 'inhaled' | 'other';
-    instructions: string | null;
-  }>;
-  prescribed_by: string | null;
+  doctor_name: string | null;
+  clinic_name: string | null;
+  prescription_date: string | null;
+  medications: OcrMedication[];
+  is_handwritten: boolean;
   confidence: 'high' | 'medium' | 'low';
 };
 
@@ -209,20 +226,44 @@ async function callOpenRouter(ctx: object, userText: string): Promise<LlmOutput>
 }
 
 const OCR_SYSTEM_PROMPT = `You are a prescription parser for Indian printed prescriptions.
-Extract ONLY what is clearly printed. Never invent drug names or doses.
-Return ONLY valid JSON:
+Extract printed prescription content. Return ONLY valid JSON:
 {
-  "is_prescription": boolean,
-  "medications": [{ "drug_name": string, "dose_mg": number|null,
-    "frequency": "OD"|"BD"|"TDS"|"QID"|"SOS"|"other",
-    "route": "oral"|"topical"|"inhaled"|"other",
-    "instructions": string|null }],
-  "prescribed_by": string|null,
+  "doctor_name": string|null,
+  "clinic_name": string|null,
+  "prescription_date": "YYYY-MM-DD"|null,
+  "medications": [
+    {
+      "name": string,
+      "dose": string,
+      "frequency": string,
+      "duration": string|null,
+      "instructions": string|null
+    }
+  ],
+  "is_handwritten": boolean,
   "confidence": "high"|"medium"|"low"
 }
-If not a prescription: { "is_prescription": false, "medications": [] }`;
+Extract ONLY what is clearly visible in the image. Never invent drug names or doses.
+If is_handwritten is true OR confidence is low, still return what you can but flag it.
+If the image is not a prescription at all, return medications: [] with confidence: "low".`;
+
+function stripJsonFences(s: string): string {
+  return s.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+}
 
 async function callOcrVision(imageDataUrl: string): Promise<OcrOutput> {
+  const requestBody = {
+    model: LLM_MODEL_SMART,
+    messages: [
+      { role: 'system', content: OCR_SYSTEM_PROMPT },
+      { role: 'user', content: [
+        { type: 'image_url', image_url: { url: imageDataUrl } },
+        { type: 'text', text: 'Extract medications from this prescription.' }
+      ] }
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0.1
+  };
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -231,24 +272,48 @@ async function callOcrVision(imageDataUrl: string): Promise<OcrOutput> {
       'HTTP-Referer': 'https://care-companion-vemana.vercel.app',
       'X-Title': 'Care Companion Saathi'
     },
-    body: JSON.stringify({
-      model: LLM_MODEL_SMART,
-      messages: [
-        { role: 'system', content: OCR_SYSTEM_PROMPT },
-        { role: 'user', content: [
-          { type: 'image_url', image_url: { url: imageDataUrl } },
-          { type: 'text', text: 'Extract medications from this prescription.' }
-        ] }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.1
-    })
+    body: JSON.stringify(requestBody)
   });
-  if (!res.ok) throw new Error(`OpenRouter vision ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const txt = await res.text();
+    console.error('OCR vision HTTP', res.status, 'model=', LLM_MODEL_SMART, 'body=', txt.slice(0, 500));
+    throw new Error(`OCR vision ${res.status}`);
+  }
   const json: any = await res.json();
-  const content = json?.choices?.[0]?.message?.content;
-  if (!content) throw new Error('OpenRouter vision returned empty content');
-  return JSON.parse(content) as OcrOutput;
+  const content: string | undefined = json?.choices?.[0]?.message?.content;
+  if (!content) throw new Error('OCR vision empty content');
+  const cleaned = stripJsonFences(content);
+  try {
+    return JSON.parse(cleaned) as OcrOutput;
+  } catch (e) {
+    console.error('OCR JSON parse failed; raw content head:', cleaned.slice(0, 400));
+    throw e;
+  }
+}
+
+const FREQ_PATTERNS: Array<[RegExp, 'OD' | 'BD' | 'TDS' | 'QID' | 'SOS' | 'HS']> = [
+  [/\b(?:od|qd|once[\s-]*daily|once[\s-]*a[\s-]*day|1[\s-]*-?[\s-]*0[\s-]*-?[\s-]*0|morning)\b/i, 'OD'],
+  [/\b(?:bd|bid|twice[\s-]*daily|twice[\s-]*a[\s-]*day|two[\s-]*times|1[\s-]*-?[\s-]*0[\s-]*-?[\s-]*1)\b/i, 'BD'],
+  [/\b(?:tds|tid|thrice[\s-]*daily|three[\s-]*times|1[\s-]*-?[\s-]*1[\s-]*-?[\s-]*1)\b/i, 'TDS'],
+  [/\b(?:qid|four[\s-]*times)\b/i, 'QID'],
+  [/\b(?:sos|prn|as[\s-]*needed|when[\s-]*needed)\b/i, 'SOS'],
+  [/\b(?:hs|at[\s-]*bedtime|before[\s-]*bed|at[\s-]*night|night)\b/i, 'HS']
+];
+
+function mapFrequency(s: string | null | undefined): 'OD' | 'BD' | 'TDS' | 'QID' | 'SOS' | 'HS' | null {
+  if (!s) return null;
+  for (const [re, code] of FREQ_PATTERNS) if (re.test(s)) return code;
+  return null;
+}
+
+function parseDose(s: string | null | undefined): { amount: number | null; unit: 'mg' | 'g' | 'ml' | 'unit' | null } {
+  if (!s) return { amount: null, unit: null };
+  const m = s.match(/(\d+(?:\.\d+)?)\s*(mg|mcg|g|ml|units?|iu)/i);
+  if (!m) return { amount: null, unit: null };
+  const u = m[2].toLowerCase();
+  const unit = u === 'mcg' ? 'mg' : u === 'units' || u === 'unit' || u === 'iu' ? 'unit' : (u as 'mg' | 'g' | 'ml');
+  const amount = u === 'mcg' ? parseFloat(m[1]) / 1000 : parseFloat(m[1]);
+  return { amount, unit };
 }
 
 async function transcribeWhisper(buffer: Buffer, fileName: string, mime: string): Promise<string> {
@@ -369,8 +434,6 @@ async function handleVoiceMessage(patient: LinkedPatient, msg: any) {
   }
 }
 
-const ALLOWED_FREQ = new Set(['OD', 'BD', 'TDS', 'QID', 'SOS', 'HS']);
-
 async function handlePhotoMessage(patient: LinkedPatient, msg: any) {
   let fileId: string | null = null;
   let mimeHint = 'image/jpeg';
@@ -381,57 +444,72 @@ async function handlePhotoMessage(patient: LinkedPatient, msg: any) {
     mimeHint = msg.document.mime_type;
   }
   if (!fileId) return;
+  const lang = (patient.preferred_language || 'en') as Lang;
 
+  let ocr: OcrOutput;
   try {
     const { buffer, mime } = await getTelegramFileBuffer(fileId);
     const usedMime = mime.startsWith('image/') ? mime : mimeHint;
     const dataUrl = `data:${usedMime};base64,${buffer.toString('base64')}`;
-    const ocr = await callOcrVision(dataUrl);
+    ocr = await callOcrVision(dataUrl);
+  } catch (err) {
+    console.error('Photo OCR pipeline failure', err);
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.ocrRetry(lang));
+    return;
+  }
 
-    const lang = (patient.preferred_language || 'en') as Lang;
-    if (!ocr.is_prescription || (ocr.medications || []).length === 0) {
-      await sendTelegramText(patient.telegram_chat_id, staticMessages.notAPrescription(lang));
-      return;
-    }
+  if (ocr.is_handwritten === true) {
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.handwrittenGuard(lang));
+    return;
+  }
 
+  if (!Array.isArray(ocr.medications) || ocr.medications.length === 0) {
+    await sendTelegramText(patient.telegram_chat_id, staticMessages.notAPrescription(lang));
+    return;
+  }
+
+  let prescriptionId: string | null = null;
+  try {
     const presRes = await supabase.from('prescriptions').insert({
       patient_id: patient.id,
       parsed_medications: ocr,
       status: 'pending_review',
-      notes: ocr.confidence ? `ocr_confidence=${ocr.confidence}` : null
+      notes: [
+        ocr.confidence ? `ocr_confidence=${ocr.confidence}` : null,
+        ocr.doctor_name ? `doctor=${ocr.doctor_name}` : null,
+        ocr.clinic_name ? `clinic=${ocr.clinic_name}` : null
+      ].filter(Boolean).join(' | ') || null
     }).select('id').single();
+    prescriptionId = presRes.data?.id ?? null;
+  } catch (e) { console.error('prescriptions insert failed', e); }
 
-    const prescriptionId: string | null = presRes.data?.id ?? null;
-
-    const drugLines: string[] = [];
-    for (const m of ocr.medications) {
-      const freq = ALLOWED_FREQ.has(m.frequency) ? m.frequency : null;
-      try {
-        await supabase.from('medications').insert({
-          patient_id: patient.id,
-          drug_name: m.drug_name,
-          dose_amount: m.dose_mg,
-          dose_unit: m.dose_mg != null ? 'mg' : null,
-          frequency: freq,
-          instructions: [m.instructions, m.route ? `route:${m.route}` : null].filter(Boolean).join(' | ') || null,
-          status: 'pending_confirmation',
-          prescription_id: prescriptionId,
-          prescribed_on: new Date().toISOString().slice(0, 10)
-        });
-      } catch (e) { console.error('medication insert failed', e); }
-      const dose = m.dose_mg != null ? `${m.dose_mg}mg` : '';
-      const freqText = freq ? ` ${freq}` : '';
-      drugLines.push(`• ${m.drug_name}${dose ? ' ' + dose : ''}${freqText}`);
-    }
-
-    await sendTelegramText(
-      patient.telegram_chat_id,
-      staticMessages.prescriptionConfirm(drugLines.join('\n'), lang, ocr.confidence === 'low')
-    );
-  } catch (err) {
-    console.error('Photo handler failure', err);
-    await sendTelegramText(patient.telegram_chat_id, staticMessages.fallbackAck(patient.full_name, patient.preferred_language));
+  const drugLines: string[] = [];
+  for (const m of ocr.medications) {
+    const { amount, unit } = parseDose(m.dose);
+    const freqCode = mapFrequency(m.frequency);
+    try {
+      await supabase.from('medications').insert({
+        patient_id: patient.id,
+        drug_name: m.name,
+        dose_amount: amount,
+        dose_unit: unit,
+        frequency: freqCode,
+        instructions: [m.instructions, m.duration ? `duration:${m.duration}` : null,
+          !freqCode && m.frequency ? `frequency:${m.frequency}` : null].filter(Boolean).join(' | ') || null,
+        status: 'pending_confirmation',
+        prescription_id: prescriptionId,
+        prescribed_on: ocr.prescription_date || new Date().toISOString().slice(0, 10)
+      });
+    } catch (e) { console.error('medication insert failed', e, { drug: m.name }); }
+    const dosePart = m.dose ? ` ${m.dose}` : '';
+    const freqPart = m.frequency ? ` ${m.frequency}` : '';
+    drugLines.push(`• ${m.name}${dosePart}${freqPart}`);
   }
+
+  await sendTelegramText(
+    patient.telegram_chat_id,
+    staticMessages.prescriptionConfirm(ocr.medications.length, drugLines.join('\n'), lang, ocr.confidence === 'low')
+  );
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
