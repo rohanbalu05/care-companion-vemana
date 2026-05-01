@@ -1,6 +1,17 @@
 import { FadeIn } from "../components/FadeIn";
+import { useDashboard, riskColor } from "../lib/dashboardData";
 
 export default function ClinicianRoster() {
+  const { data } = useDashboard();
+  const ashaName = data?.patient.full_name || 'Asha Sharma';
+  const ashaAge = data?.patient.age ?? 62;
+  const ashaConditions = data?.patient.diagnoses_short || 'T2DM + HTN';
+  const ashaLastContact = data?.patient.last_contact?.label?.split(' via ')[0] || '2h ago';
+  const ashaBp = data?.vitals.latest_bp ? `${data.vitals.latest_bp.systolic}/${data.vitals.latest_bp.diastolic}` : '—';
+  const ashaBpHigh = data?.vitals.latest_bp?.out_of_range ?? true;
+  const ashaFbg = data?.vitals.latest_fbg ? String(data.vitals.latest_fbg.value) : '—';
+  const ashaAdh = data?.adherence_7d.pct != null ? `${data.adherence_7d.pct}%` : '—';
+  const ashaRiskC = riskColor(data?.risk.level || 'elevated');
   return (
     <div className="bg-[#FAFAF9] text-on-background font-body text-body antialiased selection:bg-primary selection:text-on-primary min-h-screen">
       <style>{`
@@ -155,35 +166,35 @@ export default function ClinicianRoster() {
               <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                 <div className="flex items-center gap-4 lg:w-1/3">
                   <div className="relative">
-                    <img alt="Asha Sharma" className="w-10 h-10 rounded-full object-cover ring-2 ring-[#EA580C] ring-offset-2" data-alt="A professional headshot of a mature Indian woman looking directly at the camera with a calm, neutral expression. She is set against a clean, light studio background with soft, even lighting typical of a high-end corporate or medical directory portrait." src="https://lh3.googleusercontent.com/aida-public/AB6AXuALJaUdahyZHMcRc2aE21WPKYHIQ89V0T5Avs6SOGayrXtm_ZLaZ1AF2jQ5Z0JAoo5dbmwgoA-hPjJCPEP7gcBo7g4mddpUe4Si-JsBzkLe-qAOuFhPMTAwmVjnzA9r2flYTRQMayStEnVPJIs2UXfXhlZybPq3YXyY6Cv2Rkk3sWMqgCo-PPMYN1Tsz_Vy9HWoK7hkYvOdOXksPgCh06NQm7pApXwacn1rZWGInD3Pmjahp5SAMmZU55EGEItc666XtXJw4b_EVcOS" />
+                    <img alt={ashaName} className="w-10 h-10 rounded-full object-cover ring-2 ring-offset-2" style={{ ['--tw-ring-color' as any]: ashaRiskC.ring, boxShadow: `0 0 0 2px ${ashaRiskC.ring}` }} data-alt="A professional headshot of a mature Indian woman looking directly at the camera with a calm, neutral expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuALJaUdahyZHMcRc2aE21WPKYHIQ89V0T5Avs6SOGayrXtm_ZLaZ1AF2jQ5Z0JAoo5dbmwgoA-hPjJCPEP7gcBo7g4mddpUe4Si-JsBzkLe-qAOuFhPMTAwmVjnzA9r2flYTRQMayStEnVPJIs2UXfXhlZybPq3YXyY6Cv2Rkk3sWMqgCo-PPMYN1Tsz_Vy9HWoK7hkYvOdOXksPgCh06NQm7pApXwacn1rZWGInD3Pmjahp5SAMmZU55EGEItc666XtXJw4b_EVcOS" />
                   </div>
                   <div>
-                    <h3 className="font-h2 text-h2 text-stone-900">Asha Sharma, 62</h3>
-                    <p className="font-body-sm text-body-sm text-stone-500 mt-0.5">T2DM + HTN <span className="mx-1">•</span> <span className="text-stone-400">2h ago</span></p>
+                    <h3 className="font-h2 text-h2 text-stone-900">{ashaName}, {ashaAge}</h3>
+                    <p className="font-body-sm text-body-sm text-stone-500 mt-0.5">{ashaConditions} <span className="mx-1">•</span> <span className="text-stone-400">{ashaLastContact}</span></p>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-6 lg:w-1/2">
                   <div>
                     <p className="font-label text-label text-stone-500 mb-1">BP</p>
-                    <p className="font-vital-lg text-vital-lg text-stone-900">148/92</p>
+                    <p className={`font-vital-lg text-vital-lg ${ashaBpHigh ? 'text-[#DC2626]' : 'text-stone-900'}`}>{ashaBp}</p>
                   </div>
                   <div>
                     <p className="font-label text-label text-stone-500 mb-1">FBG</p>
-                    <p className="font-vital-lg text-vital-lg text-stone-900">156</p>
+                    <p className="font-vital-lg text-vital-lg text-stone-900">{ashaFbg}</p>
                   </div>
                   <div>
                     <p className="font-label text-label text-stone-500 mb-1">Adherence</p>
-                    <p className="font-vital-lg text-vital-lg text-[#EA580C]">71%</p>
+                    <p className="font-vital-lg text-vital-lg" style={{ color: ashaRiskC.ring }}>{ashaAdh}</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between lg:w-1/6 gap-4">
                   <div className="w-16 h-8 flex items-center">
                     <svg height="100%" preserveAspectRatio="none" viewBox="0 0 60 30" width="100%">
-                      <path d="M0 25 L15 20 L30 22 L45 10 L60 5" fill="none" stroke="#EA580C" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
-                      <circle cx="60" cy="5" fill="#EA580C" r="2"></circle>
+                      <path d="M0 25 L15 20 L30 22 L45 10 L60 5" fill="none" stroke={ashaRiskC.ring} strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
+                      <circle cx="60" cy="5" fill={ashaRiskC.ring} r="2"></circle>
                     </svg>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold bg-[#EA580C]/10 text-[#EA580C]">ELEVATED</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold" style={{ backgroundColor: `${ashaRiskC.ring}1a`, color: ashaRiskC.ring }}>{ashaRiskC.label}</span>
                 </div>
               </div>
             </div>

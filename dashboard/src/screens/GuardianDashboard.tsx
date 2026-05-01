@@ -1,6 +1,25 @@
 import { FadeIn } from "../components/FadeIn";
+import { useDashboard } from "../lib/dashboardData";
 
 export default function GuardianDashboard() {
+  const { data } = useDashboard();
+  const patient = data?.patient;
+  const guardian = data?.guardian;
+  const risk = data?.risk;
+  const adh7 = data?.adherence_7d;
+  const bp = data?.vitals.latest_bp;
+  const ashaFirst = patient?.first_name || 'Asha';
+  const guardianFirst = guardian?.name?.split(/\s+/)[0] || '';
+  const relationLabel = guardian?.relationship === 'son' ? 'Mom'
+    : guardian?.relationship === 'daughter' ? 'Mom'
+    : guardian?.relationship === 'spouse' ? (patient?.sex === 'female' ? 'Wife' : 'Husband')
+    : guardian?.relationship?.charAt(0).toUpperCase() + (guardian?.relationship?.slice(1) || '') || 'Family';
+  const headerName = `${relationLabel} — ${patient?.full_name || ''}`;
+  const lastSynced = patient?.last_contact?.label?.split(' via ')[0] || '—';
+  const alertActive = risk?.level === 'critical' || risk?.level === 'elevated' || (adh7?.pct != null && adh7.pct < 80);
+  const alertText = alertActive
+    ? `BP elevated${bp ? ` (${bp.systolic}/${bp.diastolic})` : ''}${adh7?.missed ? `, missed ${adh7.missed} medication dose${adh7.missed === 1 ? '' : 's'} this week` : ''}`
+    : `${ashaFirst} is doing well — vitals and adherence on track`;
   return (
     <div className="bg-background text-on-background font-body min-h-screen">
       <style>{`
@@ -58,20 +77,20 @@ export default function GuardianDashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-label text-label text-on-surface-variant hidden sm:block">Asha</span>
+                <span className="font-label text-label text-on-surface-variant hidden sm:block">{ashaFirst}</span>
                 <div className="w-8 h-8 rounded-full bg-tertiary-fixed flex items-center justify-center border-2 border-[#FFE082] shadow-[0_0_0_1px_#F57F17]">
-                  <span className="font-label text-on-tertiary-fixed text-[11px] font-bold">AS</span>
+                  <span className="font-label text-on-tertiary-fixed text-[11px] font-bold">{(ashaFirst[0] || 'A').toUpperCase()}{(patient?.full_name?.split(/\s+/)[1]?.[0] || 'S').toUpperCase()}</span>
                 </div>
               </div>
             </div>
             <div className="flex flex-col gap-1">
               <p className="font-body-sm text-[11px] text-on-surface-variant flex items-center gap-1.5">
                 <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-                Last contact: Mom sent a voice note 2h 14m ago
+                Last contact: {lastSynced}
               </p>
               <p className="font-body-sm text-[11px] text-on-surface-variant flex items-center gap-1.5">
                 <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-                You last opened this dashboard: 6h ago
+                {guardianFirst ? `Watching over ${ashaFirst} as ${guardianFirst}` : `Watching over ${ashaFirst}`}
               </p>
             </div>
           </div>
@@ -83,17 +102,27 @@ export default function GuardianDashboard() {
                 <img alt="Asha Sharma" className="w-16 h-16 rounded-full object-cover ring-2 ring-offset-2 ring-tertiary-container" data-alt="A portrait photograph of an elderly Indian woman with a warm, gentle smile, wearing a traditional sari. The lighting is soft and natural, suggesting a peaceful daytime setting. The color palette emphasizes warm earth tones and subtle teal accents, aligning with a professional, clinical yet human-centric aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9vVcYSFloNUQi4G_pKZY4TI4R77ZVGjrRz8Gw9buYMb3-BDpeVapvIec_poR2eM8Z5niJNe24x9XtkHmnm7fYas6MriuPNGwtfjrfHc2WZlOvLPFOFEfzLXvSTr4AW3JOVFl7c2aKv1PLTZJaX7u7QlDfpbe1AjREGXCmzVuqKNhOJTSXlmiznI7fvQ92r530E98W4kA5_ZgRk-RXYK7T5JySqWWmBeDSJuITjYGTs_7jVNK1cUZtWVe7QKwViCPgX4FU40sUlftg" />
               </div>
               <div>
-                <h1 className="font-h1 text-h1 text-on-surface">Mom — Asha Sharma</h1>
-                <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Last synced: 2 hours ago</p>
+                <h1 className="font-h1 text-h1 text-on-surface">{headerName}</h1>
+                <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Last synced: {lastSynced}</p>
               </div>
             </div>
-            <div className="bg-[#FFF8E1] border border-[#FFE082] rounded-lg p-4 max-w-[280px]">
-              <div className="flex items-center gap-2 text-[#F57F17] mb-1">
-                <span className="material-symbols-outlined" data-icon="warning" data-weight="fill">warning</span>
-                <span className="font-label text-label font-bold uppercase tracking-wider">Needs a check-in</span>
+            {alertActive ? (
+              <div className="bg-[#FFF8E1] border border-[#FFE082] rounded-lg p-4 max-w-[280px]">
+                <div className="flex items-center gap-2 text-[#F57F17] mb-1">
+                  <span className="material-symbols-outlined" data-icon="warning" data-weight="fill">warning</span>
+                  <span className="font-label text-label font-bold uppercase tracking-wider">Needs a check-in</span>
+                </div>
+                <p className="font-body-sm text-body-sm text-[#F57F17] font-medium leading-tight">{alertText}</p>
               </div>
-              <p className="font-body-sm text-body-sm text-[#F57F17] font-medium leading-tight">BP elevated for 3 days, missed 2 medication doses</p>
-            </div>
+            ) : (
+              <div className="bg-primary-container/30 border border-primary-container rounded-lg p-4 max-w-[280px]">
+                <div className="flex items-center gap-2 text-primary mb-1">
+                  <span className="material-symbols-outlined" data-icon="check_circle" data-weight="fill">check_circle</span>
+                  <span className="font-label text-label font-bold uppercase tracking-wider">All good</span>
+                </div>
+                <p className="font-body-sm text-body-sm text-primary font-medium leading-tight">{alertText}</p>
+              </div>
+            )}
           </section>
           </FadeIn>
           <FadeIn delay={0.2}>

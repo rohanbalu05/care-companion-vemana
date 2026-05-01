@@ -1,10 +1,23 @@
 import { FadeIn } from "../components/FadeIn";
 import RiskStoryTimeline from "../components/RiskStoryTimeline";
 import CallAshaButton from "../components/CallAshaButton";
+import { useDashboard, riskColor } from "../lib/dashboardData";
 
 const ASHA_PATIENT_ID = "5cf64ecc-0b6a-4cea-b02b-85605a6f5f03";
 
 export default function PatientDetail() {
+  const { data, loading, error } = useDashboard();
+  const patient = data?.patient;
+  const guardian = data?.guardian;
+  const risk = data?.risk;
+  const intervention = data?.interventions?.[0] || null;
+  const risky = risk ? riskColor(risk.level) : riskColor('elevated');
+  const sexLabel = patient?.sex === 'male' ? 'M' : patient?.sex === 'female' ? 'F' : '';
+  const guardianText = guardian
+    ? `${guardian.name}${guardian.relationship ? ` (${guardian.relationship}` : ''}${guardian.address ? `, ${guardian.address.split(',').slice(-2)[0]?.trim() || guardian.address})` : guardian.relationship ? ')' : ''}`
+    : 'No guardian on file';
+  const phoneText = patient?.phone || '—';
+  const headerName = patient?.full_name || 'Loading…';
   return (
     <div className="bg-background text-on-background font-body text-body antialiased selection:bg-primary-container selection:text-on-primary-container flex min-h-screen">
       <style>{`
@@ -53,7 +66,7 @@ export default function PatientDetail() {
           <div className="flex items-center gap-2">
             <span className="text-stone-500 text-sm font-medium">Patients</span>
             <span className="material-symbols-outlined text-stone-400 text-[16px]">chevron_right</span>
-            <h2 className="text-base font-medium text-stone-900 dark:text-stone-100">Asha Sharma</h2>
+            <h2 className="text-base font-medium text-stone-900 dark:text-stone-100">{headerName}</h2>
           </div>
           <div className="flex items-center gap-2">
             <button className="p-2 text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-900 rounded-md transition-all duration-200" title="notifications">
@@ -79,28 +92,28 @@ export default function PatientDetail() {
                     </div>
                     <div>
                       <h1 className="font-h1 text-h1 text-on-surface mb-1 flex items-center gap-2">
-                        Asha Sharma
-                        <span className="text-outline font-body-sm text-body-sm font-normal">F, 62</span>
+                        {patient?.full_name || (loading ? 'Loading…' : 'Patient')}
+                        {patient && <span className="text-outline font-body-sm text-body-sm font-normal">{sexLabel}{patient.age != null ? `, ${patient.age}` : ''}</span>}
                       </h1>
                       <div className="flex flex-wrap items-center gap-3 text-body-sm font-body-sm text-on-surface-variant mb-2">
-                        <span className="font-medium text-on-surface">T2DM (4y), HTN (2y)</span>
+                        <span className="font-medium text-on-surface">{patient?.diagnoses_label || '—'}</span>
                         <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-                        <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">call</span> +91 98765 43210</span>
+                        <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">call</span> {phoneText}</span>
                         <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-                        <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">supervisor_account</span> Rohan Sharma (son, Bangalore)</span>
+                        <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[16px]">supervisor_account</span> {guardianText}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-3 text-label font-label text-outline">
-                        <span>Primary: Dr. Priya Mehta</span>
+                        <span>Primary: {patient?.clinician_name || 'Dr. Priya Mehta'}</span>
                         <span className="w-1 h-1 rounded-full bg-outline-variant"></span>
-                        <span className="flex items-center gap-1 text-primary-container"><span className="material-symbols-outlined text-[14px]">chat</span> Last contact: 2h ago via Telegram (Hindi)</span>
+                        <span className="flex items-center gap-1 text-primary-container"><span className="material-symbols-outlined text-[14px]">chat</span> Last contact: {patient?.last_contact?.label || '—'}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex flex-row-reverse items-center gap-6 min-w-[420px]">
                     <div className="flex flex-col items-end gap-3">
-                      <div className="bg-error-container text-on-error-container px-3 py-1.5 rounded-full font-label text-label flex items-center gap-1.5">
+                      <div className={`px-3 py-1.5 rounded-full font-label text-label flex items-center gap-1.5 ${risky.pill}`}>
                         <span className="material-symbols-outlined icon-fill text-[16px]">warning</span>
-                        ELEVATED RISK
+                        {risky.label} RISK
                       </div>
                       <a className="text-primary text-label font-label flex items-center gap-1 hover:underline mt-1" href="#">View reasoning <span className="material-symbols-outlined text-[14px]">arrow_forward</span></a>
                       <CallAshaButton patientId={ASHA_PATIENT_ID} />
@@ -128,23 +141,42 @@ export default function PatientDetail() {
             <FadeIn delay={0.2}>
             <div className="flex flex-col gap-4">
               <h3 className="font-h2 text-h2 text-on-surface mb-2">Interventions</h3>
-              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-4 shadow-[0_2px_4px_rgba(28,25,23,0.02)] flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 text-on-surface font-body text-body font-medium">
-                    <span className="material-symbols-outlined text-primary text-[20px]">smart_toy</span>
-                    Adherence check-in
+              {error && (
+                <div className="bg-error-container/40 border border-error-container rounded-xl p-3 text-body-sm font-body-sm text-on-error-container">
+                  Couldn't load interventions: {error}
+                </div>
+              )}
+              {!error && intervention ? (
+                <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-4 shadow-[0_2px_4px_rgba(28,25,23,0.02)] flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 text-on-surface font-body text-body font-medium">
+                      <span className="material-symbols-outlined text-primary text-[20px]">smart_toy</span>
+                      AI-proposed action
+                    </div>
+                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary-container text-on-primary-container">{intervention.status.replace(/_/g, ' ')}</span>
                   </div>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant">{intervention.recommendation_text}</p>
+                  {intervention.sent_message_text && (
+                    <div className="bg-surface-container rounded-md p-3 text-body-sm font-body-sm text-on-surface font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+                      {intervention.sent_message_text}
+                    </div>
+                  )}
+                  {intervention.citation && (
+                    <p className="text-label font-label text-outline">📖 {intervention.citation}</p>
+                  )}
+                  {intervention.status !== 'sent' && (
+                    <div className="flex gap-2 mt-2">
+                      <button className="flex-1 py-1.5 px-3 rounded border border-outline-variant text-on-surface font-label text-label hover:bg-surface-container-low transition-colors">Reject</button>
+                      <button className="flex-1 py-1.5 px-3 rounded bg-primary text-on-primary font-label text-label hover:bg-primary-container transition-colors">Approve &amp; Send</button>
+                    </div>
+                  )}
                 </div>
-                <p className="text-body-sm font-body-sm text-on-surface-variant">Automated Telegram ping in Hindi regarding recent missed Amlodipine doses.</p>
-                <div className="bg-surface-container rounded-md p-3 text-body-sm font-body-sm text-on-surface font-mono text-[11px] leading-relaxed">
-                  "नमस्ते आशा जी, क्या आप अपनी सुबह की बीपी की गोली ले रही हैं? कोई परेशानी हो तो बताएं।"<br />
-                  <span className="text-outline mt-1 block">(Hi Asha ji, are you taking your morning BP pill? Let us know if there's any issue.)</span>
+              ) : !error && (
+                <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 shadow-[0_2px_4px_rgba(28,25,23,0.02)] text-center">
+                  <span className="material-symbols-outlined text-primary text-[28px]">check_circle</span>
+                  <p className="text-body-sm font-body-sm text-on-surface-variant mt-2">No active interventions. {patient?.first_name || 'Patient'} is on track. ✨</p>
                 </div>
-                <div className="flex gap-2 mt-2">
-                  <button className="flex-1 py-1.5 px-3 rounded border border-outline-variant text-on-surface font-label text-label hover:bg-surface-container-low transition-colors">Reject</button>
-                  <button className="flex-1 py-1.5 px-3 rounded bg-primary text-on-primary font-label text-label hover:bg-primary-container transition-colors">Approve &amp; Send</button>
-                </div>
-              </div>
+              )}
             </div>
             </FadeIn>
           </div>
