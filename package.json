@@ -1,0 +1,12 @@
+{
+  "name": "care-companion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Care Companion AI — Vercel serverless functions for Telegram webhook",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.2.24"
+  }
+}
