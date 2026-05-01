@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "buildCommand": "cd dashboard && npm install && npm run build",
+  "outputDirectory": "dashboard/dist",
+  "framework": null,
   "functions": {
     "api/telegram.ts": { "maxDuration": 30 },
     "api/health.ts": { "maxDuration": 5 },
