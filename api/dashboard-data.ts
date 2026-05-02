@@ -56,7 +56,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ error: 'method not allowed' });
     return;
   }
-  const patientId = ((req.query.patient_id as string | undefined) || ASHA_DEFAULT_ID).trim();
+  const queryPatientId = (req.query.patient_id as string | undefined)?.trim();
+  const queryToken = (req.query.token as string | undefined)?.trim();
+  const queryGuardianToken = (req.query.guardian_token as string | undefined)?.trim();
+
+  let patientId = queryPatientId;
+  let resolvedFromToken: string | null = null;
+
+  if (!patientId && queryToken) {
+    const { data: pp } = await supabase.from('patients').select('id').eq('access_token', queryToken).maybeSingle();
+    if (pp?.id) { patientId = pp.id; resolvedFromToken = `patient:${queryToken}`; }
+  }
+  if (!patientId && queryGuardianToken) {
+    const { data: gg } = await supabase.from('guardians').select('patient_id').eq('access_token', queryGuardianToken).maybeSingle();
+    if (gg?.patient_id) { patientId = gg.patient_id; resolvedFromToken = `guardian:${queryGuardianToken}`; }
+  }
+  if (!patientId) patientId = ASHA_DEFAULT_ID;
+  patientId = patientId.trim();
+
+  if ((queryToken || queryGuardianToken) && !resolvedFromToken) {
+    res.status(404).json({ error: 'invalid_or_expired_token' });
+    return;
+  }
 
   try {
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();

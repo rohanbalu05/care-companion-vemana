@@ -70,7 +70,14 @@ type Ctx = {
 
 const DashboardContext = createContext<Ctx>({ data: null, loading: true, error: null, refresh: () => {} });
 
-export function DashboardProvider({ patientId, children }: { patientId?: string; children: ReactNode }) {
+type ProviderProps = {
+  patientId?: string;
+  token?: string;
+  guardianToken?: string;
+  children: ReactNode;
+};
+
+export function DashboardProvider({ patientId, token, guardianToken, children }: ProviderProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,16 +87,25 @@ export function DashboardProvider({ patientId, children }: { patientId?: string;
     let aborted = false;
     setLoading(true);
     setError(null);
-    const url = `${API_BASE}/api/dashboard-data${patientId ? `?patient_id=${encodeURIComponent(patientId)}` : ''}`;
+    const params = new URLSearchParams();
+    if (patientId) params.set('patient_id', patientId);
+    else if (token) params.set('token', token);
+    else if (guardianToken) params.set('guardian_token', guardianToken);
+    const qs = params.toString();
+    const url = `${API_BASE}/api/dashboard-data${qs ? `?${qs}` : ''}`;
     fetch(url)
       .then(async r => {
-        if (!r.ok) throw new Error(`status ${r.status}`);
+        if (!r.ok) {
+          let detail = '';
+          try { const j = await r.json(); detail = j?.error || ''; } catch {}
+          throw new Error(detail || `status ${r.status}`);
+        }
         return (await r.json()) as DashboardData;
       })
       .then(d => { if (!aborted) { setData(d); setLoading(false); } })
       .catch(e => { if (!aborted) { setError(e?.message || String(e)); setLoading(false); } });
     return () => { aborted = true; };
-  }, [patientId, tick]);
+  }, [patientId, token, guardianToken, tick]);
 
   return (
     <DashboardContext.Provider value={{ data, loading, error, refresh: () => setTick(t => t + 1) }}>

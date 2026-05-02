@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { FadeIn } from "../components/FadeIn";
 import { useDashboard, riskColor } from "../lib/dashboardData";
 
@@ -32,40 +33,40 @@ export default function ClinicianRoster() {
         <div className="flex-1 py-4 overflow-y-auto">
           <ul className="space-y-1 px-3">
             <li>
-              <a className="flex items-center gap-3 px-3 py-2 rounded-md bg-stone-50 text-teal-700 dark:text-teal-400 font-semibold border-r-2 border-teal-700 dark:border-teal-400 transition-colors" href="#">
+              <Link to="/clinician" className="flex items-center gap-3 px-3 py-2 rounded-md bg-stone-50 text-teal-700 dark:text-teal-400 font-semibold border-r-2 border-teal-700 dark:border-teal-400 transition-colors">
                 <span className="material-symbols-outlined text-lg">group</span>
                 Patients
-              </a>
+              </Link>
             </li>
             <li>
-              <a className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors cursor-pointer active:opacity-80" href="#">
+              <Link to="/clinician/detail" className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors cursor-pointer active:opacity-80">
                 <span className="material-symbols-outlined text-lg">healing</span>
                 Interventions
                 <span className="ml-auto bg-error text-on-error text-[10px] font-bold px-2 py-0.5 rounded-full">3</span>
-              </a>
+              </Link>
             </li>
             <li>
-              <a className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors cursor-pointer active:opacity-80" href="#">
+              <Link to="/" className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors cursor-pointer active:opacity-80">
                 <span className="material-symbols-outlined text-lg">person_add</span>
                 Onboarding
-              </a>
+              </Link>
             </li>
             <li>
-              <a className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors cursor-pointer active:opacity-80" href="#">
+              <Link to="/clinician" className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors cursor-pointer active:opacity-80">
                 <span className="material-symbols-outlined text-lg">settings</span>
                 Settings
-              </a>
+              </Link>
             </li>
           </ul>
         </div>
         <div className="p-4 border-t border-stone-200 dark:border-stone-800">
-          <a className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors cursor-pointer active:opacity-80" href="#">
+          <Link to="/login" className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors cursor-pointer active:opacity-80">
             <span className="material-symbols-outlined text-lg">account_circle</span>
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-stone-700 dark:text-stone-300">Profile</span>
               <span className="text-[10px] text-stone-500 truncate w-32">Dr. Priya Mehta, MBBS MD</span>
             </div>
-          </a>
+          </Link>
         </div>
       </nav>
       <div className="md:ml-[240px] flex flex-col min-h-screen">

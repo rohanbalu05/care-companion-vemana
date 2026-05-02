@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { FadeIn } from "../components/FadeIn";
 import RiskStoryTimeline from "../components/RiskStoryTimeline";
 import CallAshaButton from "../components/CallAshaButton";
@@ -43,28 +44,28 @@ export default function PatientDetail({ initialPanelOpen = false }: { initialPan
           </div>
         </div>
         <div className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
-          <a className="flex items-center gap-3 px-3 py-2 text-teal-700 dark:text-teal-400 font-semibold border-r-2 border-teal-700 dark:border-teal-400 bg-stone-50 dark:bg-stone-900/50 cursor-pointer active:opacity-80 transition-colors group" href="#">
+          <Link to="/clinician" className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80 group">
             <span className="material-symbols-outlined text-[20px]">group</span>
             <span>Patients</span>
-          </a>
-          <a className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80 group" href="#">
+          </Link>
+          <Link to="/clinician/detail" className="flex items-center gap-3 px-3 py-2 text-teal-700 dark:text-teal-400 font-semibold border-r-2 border-teal-700 dark:border-teal-400 bg-stone-50 dark:bg-stone-900/50 cursor-pointer active:opacity-80 transition-colors rounded-md group">
             <span className="material-symbols-outlined text-[20px]">healing</span>
             <span>Interventions</span>
-          </a>
-          <a className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80 group" href="#">
+          </Link>
+          <Link to="/" className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80 group">
             <span className="material-symbols-outlined text-[20px]">person_add</span>
             <span>Onboarding</span>
-          </a>
-          <a className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80 group" href="#">
+          </Link>
+          <Link to="/clinician" className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80 group">
             <span className="material-symbols-outlined text-[20px]">settings</span>
             <span>Settings</span>
-          </a>
+          </Link>
         </div>
         <div className="p-4 border-t border-stone-200 dark:border-stone-800">
-          <a className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80" href="#">
+          <Link to="/login" className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80">
             <span className="material-symbols-outlined text-[20px]">account_circle</span>
             <span>Profile</span>
-          </a>
+          </Link>
         </div>
       </nav>
       <div className="flex-1 flex flex-col md:ml-[240px] min-w-0">
