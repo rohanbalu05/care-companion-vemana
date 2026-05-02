@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { FadeIn } from "../components/FadeIn";
 import { useDashboard } from "../lib/dashboardData";
 import { DashboardLoading, DashboardError } from "../components/DashboardStateGate";
+
+type PatientTab = 'home' | 'health' | 'awards' | 'profile';
 
 const WELLNESS_CIRC = 282.7;
 function pct100(v: number | undefined | null, max: number): number {
@@ -26,6 +29,7 @@ function miniPath(values: number[], height: number): string | null {
 
 export default function PatientDashboard() {
   const { data, loading, error, refresh } = useDashboard();
+  const [activeTab, setActiveTab] = useState<PatientTab>('home');
   if (loading && !data) return <DashboardLoading label="Loading your dashboard…" />;
   if (error && !data) return <DashboardError error={error} onRetry={refresh} kind="patient" />;
   const firstName = data?.patient.first_name || 'Patient';
@@ -90,6 +94,7 @@ export default function PatientDashboard() {
             <h1 className="font-h1 text-h1 text-on-surface">Hello, {firstName || '…'}</h1>
             <p className="font-body text-body text-on-surface-variant hindi mt-1">नमस्ते, {firstName || '…'}</p>
           </div>
+          {activeTab === 'home' && (<>
           <FadeIn delay={0}>
           <section className="bg-surface-container-lowest rounded-xl p-card_padding border border-surface-variant shadow-sm flex flex-col items-center">
             <div className="relative w-40 h-40 flex items-center justify-center">
@@ -343,25 +348,173 @@ export default function PatientDashboard() {
             </a>
           </section>
           </FadeIn>
+          </>)}
+
+          {activeTab === 'health' && (
+            <FadeIn delay={0}>
+              <section className="bg-surface-container-lowest rounded-xl p-4 border border-surface-variant shadow-sm flex flex-col gap-4">
+                <h2 className="font-h2 text-h2 text-on-surface">Your health, in detail</h2>
+                <div className="flex flex-col gap-3">
+                  <ReadingRow label="Blood pressure" subLabel={bp?.relative || 'no reading yet'} value={bp ? `${bp.systolic}/${bp.diastolic}` : '—'} unit="mmHg" warn={Boolean(bp?.out_of_range)} />
+                  <ReadingRow label={`Blood sugar${glucose ? ` · ${glucose.kind === 'fasting' ? 'fasting' : glucose.kind === 'post_meal' ? 'post-meal' : 'random'}` : ''}`} subLabel={glucose?.relative || 'no reading yet'} value={glucose ? String(glucose.value) : '—'} unit="mg/dL" warn={Boolean(glucose?.out_of_range)} />
+                  <ReadingRow label="Adherence (7 days)" subLabel={adh7?.pct != null ? `${adh7.taken}/${adh7.total} doses` : 'no doses logged'} value={adh7?.pct != null ? `${adh7.pct}%` : '—'} unit="" warn={(adh7?.pct ?? 100) < 80} />
+                </div>
+                <div className="border-t border-outline-variant/60 pt-4">
+                  <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider mb-3">Medications</h3>
+                  {(data?.medications_adherence || []).length === 0 ? (
+                    <p className="font-body-sm text-body-sm text-on-surface-variant">No active prescriptions yet.</p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {(data?.medications_adherence || []).map(m => (
+                        <div key={m.drug_name} className="bg-surface-container-low/60 rounded-md p-3 flex items-center justify-between">
+                          <div>
+                            <div className="font-body text-body text-on-surface font-semibold">{m.drug_name}</div>
+                            <div className="font-label text-[11px] text-on-surface-variant mt-0.5">
+                              {m.purpose || (m.dose ? m.dose : 'Prescribed')}{m.frequency ? ` · ${m.frequency}` : ''}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className={`font-vital-sm text-vital-sm ${m.adherence_pct_30d != null && m.adherence_pct_30d < 80 ? 'text-error' : 'text-on-surface'}`}>
+                              {m.adherence_pct_30d != null ? `${m.adherence_pct_30d}%` : '—'}
+                            </span>
+                            <div className="font-label text-[10px] text-outline mt-0.5">30-day adherence</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            </FadeIn>
+          )}
+
+          {activeTab === 'awards' && (
+            <FadeIn delay={0}>
+              <section className="flex flex-col gap-4">
+                <div className="bg-primary-container/10 border border-primary-container/20 rounded-xl p-5 flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary-container text-on-primary-container p-2.5 rounded-lg shrink-0">
+                      <span className="material-symbols-outlined">redeem</span>
+                    </div>
+                    <h2 className="font-h2 text-h2 text-on-surface">Subscription voucher</h2>
+                  </div>
+                  <p className="font-body-sm text-body-sm text-on-surface">
+                    Reach <span className="font-vital-sm text-vital-sm text-primary-container">{target}</span> wellness points and hold for 14 days to unlock <strong>next month's clinic subscription waived</strong>.
+                  </p>
+                  <div className="flex justify-between items-end mt-1">
+                    <div>
+                      <span className="font-vital-lg text-vital-lg text-primary-container">{score ?? '—'}</span>
+                      <span className="font-label text-label text-on-surface-variant"> / {target}</span>
+                    </div>
+                    <p className="font-label text-label text-primary-container">{ptsAway != null ? `${ptsAway} points to go` : 'Keep going!'}</p>
+                  </div>
+                  <div className="w-full h-1.5 bg-primary-container/20 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary-container rounded-full" style={{ width: `${voucherPct}%` }}></div>
+                  </div>
+                </div>
+                <div className="bg-surface-container-lowest rounded-xl p-4 border border-surface-variant shadow-sm flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-[28px] text-primary">eco</span>
+                    <div>
+                      <div className="font-body text-body text-on-surface font-semibold">{streak === 0 ? 'Start your streak today' : `${streak}-day check-in streak`}</div>
+                      <div className="font-label text-[11px] text-on-surface-variant mt-0.5">Daily logging on Telegram counts</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-tertiary-fixed/30 border border-tertiary-fixed-dim rounded-xl p-4 flex items-start gap-3">
+                  <span className="material-symbols-outlined text-tertiary mt-0.5">tips_and_updates</span>
+                  <div>
+                    <h3 className="font-label text-label text-on-surface font-semibold">How wellness is calculated</h3>
+                    <p className="font-body-sm text-[12px] text-on-surface-variant mt-0.5 leading-relaxed">35% medication adherence, 35% vitals in range, 20% engagement, 10% symptom load. All weighted live from your Telegram check-ins.</p>
+                  </div>
+                </div>
+              </section>
+            </FadeIn>
+          )}
+
+          {activeTab === 'profile' && (
+            <FadeIn delay={0}>
+              <section className="flex flex-col gap-4">
+                <div className="bg-surface-container-lowest rounded-xl p-5 border border-surface-variant shadow-sm flex flex-col gap-2">
+                  <h2 className="font-h2 text-h2 text-on-surface">{data?.patient.full_name || firstName}</h2>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">
+                    {data?.patient.age != null ? `${data.patient.age} years old` : 'Age not recorded'}{data?.patient.sex ? ` · ${data.patient.sex}` : ''}
+                  </p>
+                  {data?.patient.diagnoses && data.patient.diagnoses.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {data.patient.diagnoses.map(d => (
+                        <span key={d.condition} className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary-container/15 text-primary-container border border-primary-container/30">{d.short}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <ProfileRow icon="person" label="Care team" value={data?.patient.clinician_name || 'Dr. Priya Mehta'} sub={data?.patient.clinic_name || ''} />
+                <ProfileRow icon="language" label="Preferred language" value={data?.patient.preferred_language_label || 'English'} sub="The bot replies in this language" />
+                <ProfileRow icon="call" label="Phone" value={data?.patient.phone || 'Not on file'} sub="" />
+                <ProfileRow icon="schedule" label="Last contact" value={data?.patient.last_contact?.label || '—'} sub="" />
+                <a
+                  href="https://t.me/Care_companion_Saathi_bot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-primary text-on-primary font-label text-label py-2.5 px-4 rounded-lg w-full flex justify-center items-center gap-2 hover:bg-primary-container transition-colors mt-2"
+                >
+                  Open Telegram
+                  <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                </a>
+              </section>
+            </FadeIn>
+          )}
         </main>
-        <nav role="navigation" aria-label="Bottom tabs" className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-md font-sans text-[11px] font-medium text-teal-700 dark:text-teal-400 fixed bottom-0 w-full max-w-md left-1/2 -translate-x-1/2 border-t border-stone-200 dark:border-stone-800 shadow-[0_-2px_10px_rgba(0,0,0,0.02)] flex justify-around items-center h-16 z-50 px-2 pb-safe">
-          <span aria-current="page" className="flex flex-col items-center justify-center text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 rounded-xl px-3 py-1">
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
-            <span className="mt-1">Home</span>
-          </span>
-          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 cursor-default opacity-60">
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>vital_signs</span>
-            <span className="mt-1">Health</span>
-          </span>
-          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 cursor-default opacity-60">
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>emoji_events</span>
-            <span className="mt-1">Awards</span>
-          </span>
-          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 cursor-default opacity-60">
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>person</span>
-            <span className="mt-1">Profile</span>
-          </span>
+        <nav role="navigation" aria-label="Bottom tabs" className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-md font-sans text-[11px] font-medium fixed bottom-0 w-full max-w-md left-1/2 -translate-x-1/2 border-t border-stone-200 dark:border-stone-800 shadow-[0_-2px_10px_rgba(0,0,0,0.02)] flex justify-around items-center h-16 z-50 px-2 pb-safe">
+          {(['home','health','awards','profile'] as const).map(tab => {
+            const icons: Record<PatientTab, string> = { home: 'home', health: 'vital_signs', awards: 'emoji_events', profile: 'person' };
+            const labels: Record<PatientTab, string> = { home: 'Home', health: 'Health', awards: 'Awards', profile: 'Profile' };
+            const active = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                aria-current={active ? 'page' : undefined}
+                className={`flex flex-col items-center justify-center rounded-xl px-3 py-1 transition-colors ${
+                  active
+                    ? 'text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20'
+                    : 'text-stone-400 dark:text-stone-500 hover:text-stone-600'
+                }`}
+              >
+                <span className="material-symbols-outlined" style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}>{icons[tab]}</span>
+                <span className="mt-1">{labels[tab]}</span>
+              </button>
+            );
+          })}
         </nav>
+      </div>
+    </div>
+  );
+}
+
+function ReadingRow({ label, subLabel, value, unit, warn }: { label: string; subLabel: string; value: string; unit: string; warn: boolean }) {
+  return (
+    <div className={`rounded-lg p-3 flex justify-between items-center border ${warn ? 'bg-error-container/40 border-error-container' : 'bg-surface-container-low/60 border-outline-variant/60'}`}>
+      <div>
+        <div className="font-label text-label text-on-surface-variant">{label}</div>
+        <div className="font-body-sm text-[11px] text-outline mt-0.5">{subLabel}</div>
+      </div>
+      <div className="text-right">
+        <span className={`font-vital-lg text-vital-lg ${warn ? 'text-error' : 'text-on-surface'}`}>{value}</span>
+        {unit && <span className="text-sm font-body text-outline ml-1">{unit}</span>}
+      </div>
+    </div>
+  );
+}
+
+function ProfileRow({ icon, label, value, sub }: { icon: string; label: string; value: string; sub: string }) {
+  return (
+    <div className="bg-surface-container-lowest rounded-lg p-3 border border-outline-variant/60 flex items-start gap-3">
+      <span className="material-symbols-outlined text-on-surface-variant mt-0.5 text-[20px]">{icon}</span>
+      <div className="flex-1 min-w-0">
+        <div className="font-label text-[11px] uppercase tracking-wider text-on-surface-variant">{label}</div>
+        <div className="font-body text-body text-on-surface mt-0.5 truncate">{value}</div>
+        {sub && <div className="font-label text-[11px] text-outline mt-0.5">{sub}</div>}
       </div>
     </div>
   );
