@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { FadeIn } from "../components/FadeIn";
 import RiskStoryTimeline from "../components/RiskStoryTimeline";
 import CallAshaButton from "../components/CallAshaButton";
@@ -7,18 +8,84 @@ import ReasoningTracePanel from "./ReasoningTracePanel";
 import { useDashboard, riskColor } from "../lib/dashboardData";
 
 const ASHA_PATIENT_ID = "5cf64ecc-0b6a-4cea-b02b-85605a6f5f03";
+const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) || '';
+
+type ActionState = 'idle' | 'submitting' | 'sent' | 'rejected' | 'error';
+
+function relativeDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return '';
+  const diff = Date.now() - t;
+  const min = Math.round(diff / 60000);
+  const hr = Math.round(diff / 3600000);
+  const day = Math.round(diff / 86400000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  if (hr < 24) return `${hr}h ago`;
+  if (day === 1) return 'yesterday';
+  if (day < 7) return `${day}d ago`;
+  return `${Math.round(day / 7)}w ago`;
+}
 
 export default function PatientDetail({ initialPanelOpen = false }: { initialPanelOpen?: boolean }) {
   const [panelOpen, setPanelOpen] = useState(initialPanelOpen);
   const [panelEventId, setPanelEventId] = useState<string | null>(null);
   const openPanel = (eventId?: string) => { setPanelEventId(eventId || null); setPanelOpen(true); };
   const closePanel = () => setPanelOpen(false);
-  const { data, loading, error } = useDashboard();
+  const { data, loading, error, refresh, patchIntervention } = useDashboard();
+  const [actionState, setActionState] = useState<ActionState>('idle');
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
   const patient = data?.patient;
   const guardian = data?.guardian;
   const risk = data?.risk;
-  const intervention = data?.interventions?.[0] || null;
+  const allInterventions = data?.interventions || [];
+  const intervention = allInterventions.find(i => i.status === 'pending_review') || allInterventions[0] || null;
+  const historyInterventions = allInterventions.filter(i => i.id !== intervention?.id).slice(0, 6);
   const risky = risk ? riskColor(risk.level) : riskColor('elevated');
+
+  async function handleAction(action: 'approve' | 'reject') {
+    if (!intervention || actionState === 'submitting') return;
+    setActionState('submitting');
+    setActionMsg(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/intervention-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intervention_id: intervention.id, action })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setActionState('error');
+        setActionMsg(body?.error || `request failed (${res.status})`);
+        return;
+      }
+      if (action === 'approve') {
+        setActionState('sent');
+        setActionMsg(body?.telegram_sent
+          ? 'Approved & sent to Telegram ✓'
+          : 'Approved (patient not linked to Telegram yet)');
+        patchIntervention(intervention.id, {
+          status: body?.status || 'sent',
+          sent_message_text: body?.sent_message_text || intervention.recommendation_text,
+          sent_at: new Date().toISOString(),
+          approved_at: new Date().toISOString()
+        });
+      } else {
+        setActionState('rejected');
+        setActionMsg('Intervention rejected');
+        patchIntervention(intervention.id, {
+          status: 'rejected',
+          approved_at: new Date().toISOString()
+        });
+      }
+      setTimeout(() => { refresh(); }, 2500);
+    } catch (e: any) {
+      setActionState('error');
+      setActionMsg(e?.message || 'request failed');
+    }
+  }
+
   const sexLabel = patient?.sex === 'male' ? 'M' : patient?.sex === 'female' ? 'F' : '';
   const guardianText = guardian
     ? `${guardian.name}${guardian.relationship ? ` (${guardian.relationship}` : ''}${guardian.address ? `, ${guardian.address.split(',').slice(-2)[0]?.trim() || guardian.address})` : guardian.relationship ? ')' : ''}`
@@ -152,7 +219,21 @@ export default function PatientDetail({ initialPanelOpen = false }: { initialPan
                 </div>
               )}
               {!error && intervention ? (
-                <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-4 shadow-[0_2px_4px_rgba(28,25,23,0.02)] flex flex-col gap-3">
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                  className={`relative bg-surface-container-lowest rounded-xl border p-4 shadow-[0_2px_4px_rgba(28,25,23,0.02)] flex flex-col gap-3 ${
+                    intervention.status === 'pending_review' && actionState === 'idle'
+                      ? 'border-primary-container/60'
+                      : 'border-outline-variant'
+                  }`}>
+                  {intervention.status === 'pending_review' && actionState === 'idle' && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-3 w-3" aria-hidden>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-container/50"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-primary-container"></span>
+                    </span>
+                  )}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 text-on-surface font-body text-body font-medium">
                       <span className="material-symbols-outlined text-primary text-[20px]">smart_toy</span>
@@ -169,17 +250,81 @@ export default function PatientDetail({ initialPanelOpen = false }: { initialPan
                   {intervention.citation && (
                     <p className="text-label font-label text-outline">📖 {intervention.citation}</p>
                   )}
-                  {intervention.status !== 'sent' && (
+                  {intervention.status !== 'sent' && actionState !== 'sent' && actionState !== 'rejected' && (
                     <div className="flex gap-2 mt-2">
-                      <button className="flex-1 py-1.5 px-3 rounded border border-outline-variant text-on-surface font-label text-label hover:bg-surface-container-low transition-colors">Reject</button>
-                      <button className="flex-1 py-1.5 px-3 rounded bg-primary text-on-primary font-label text-label hover:bg-primary-container transition-colors">Approve &amp; Send</button>
+                      <button
+                        onClick={() => handleAction('reject')}
+                        disabled={actionState === 'submitting'}
+                        className="flex-1 py-1.5 px-3 rounded border border-outline-variant text-on-surface font-label text-label hover:bg-surface-container-low transition-colors disabled:opacity-50">
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => handleAction('approve')}
+                        disabled={actionState === 'submitting'}
+                        className="flex-1 py-1.5 px-3 rounded bg-primary text-on-primary font-label text-label hover:bg-primary-container transition-colors disabled:opacity-60 inline-flex items-center justify-center gap-1.5">
+                        {actionState === 'submitting' && (
+                          <span className="inline-block w-3 h-3 rounded-full border-2 border-on-primary border-t-transparent animate-spin" />
+                        )}
+                        {actionState === 'submitting' ? 'Sending…' : 'Approve & Send'}
+                      </button>
                     </div>
                   )}
-                </div>
+                  <AnimatePresence>
+                    {(actionState === 'sent' || actionState === 'rejected' || actionState === 'error') && actionMsg && (
+                      <motion.div
+                        key="action-status"
+                        initial={{ opacity: 0, y: 6, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25, ease: 'easeOut' }}
+                        className={`mt-2 px-3 py-2 rounded-md text-label font-label inline-flex items-center gap-2 ${
+                          actionState === 'sent' ? 'bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30'
+                            : actionState === 'rejected' ? 'bg-surface-container border border-outline-variant text-on-surface-variant'
+                            : 'bg-error-container/40 text-on-error-container border border-error-container/60'
+                        }`}>
+                        {actionState === 'sent' && <span className="material-symbols-outlined text-[16px]">check_circle</span>}
+                        {actionState === 'rejected' && <span className="material-symbols-outlined text-[16px]">block</span>}
+                        {actionState === 'error' && <span className="material-symbols-outlined text-[16px]">error</span>}
+                        <span>{actionMsg}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               ) : !error && (
                 <div className="bg-surface-container-lowest rounded-xl border border-outline-variant p-6 shadow-[0_2px_4px_rgba(28,25,23,0.02)] text-center">
                   <span className="material-symbols-outlined text-primary text-[28px]">check_circle</span>
                   <p className="text-body-sm font-body-sm text-on-surface-variant mt-2">No active interventions. {patient?.first_name || 'Patient'} is on track. ✨</p>
+                </div>
+              )}
+
+              {historyInterventions.length > 0 && (
+                <div className="flex flex-col gap-2 mt-4">
+                  <h4 className="font-label text-label uppercase tracking-wider text-on-surface-variant">Recent activity</h4>
+                  <ol className="flex flex-col gap-2">
+                    {historyInterventions.map((it, idx) => (
+                      <motion.li
+                        key={it.id}
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.25, delay: idx * 0.04 }}
+                        className="bg-surface-container-lowest rounded-md border border-outline-variant/60 p-3 text-body-sm font-body-sm flex flex-col gap-1.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`text-[10px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded ${
+                            it.status === 'sent' ? 'bg-[#16A34A]/10 text-[#16A34A]'
+                              : it.status === 'rejected' ? 'bg-surface-container text-on-surface-variant border border-outline-variant'
+                              : it.status === 'approved' ? 'bg-primary-container/30 text-on-primary-container'
+                              : 'bg-tertiary-container/30 text-on-surface-variant'
+                          }`}>
+                            {it.status === 'sent' ? '✓ Sent' : it.status === 'rejected' ? '✕ Rejected' : it.status.replace(/_/g, ' ')}
+                          </span>
+                          <span className="text-[11px] text-outline">{relativeDate(it.sent_at || it.approved_at || it.created_at)}</span>
+                        </div>
+                        <p className="text-on-surface-variant text-[13px] leading-snug line-clamp-2">{it.recommendation_text}</p>
+                        {it.citation && <span className="text-[10px] text-outline">{it.citation}</span>}
+                      </motion.li>
+                    ))}
+                  </ol>
                 </div>
               )}
             </div>

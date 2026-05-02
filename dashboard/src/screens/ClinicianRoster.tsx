@@ -96,9 +96,9 @@ export default function ClinicianRoster() {
         </header>
         <main className="flex-1 mt-16 p-6">
           <FadeIn delay={0}>
-            <div className="bg-[#0F766E]/10 border border-[#0F766E]/20 text-[#0F766E] px-4 py-2 rounded-md mb-6 flex items-center justify-between text-sm font-medium cursor-pointer hover:bg-[#0F766E]/15 transition-colors">
+            <Link to="/clinician/detail" className="block bg-[#0F766E]/10 border border-[#0F766E]/20 text-[#0F766E] px-4 py-2 rounded-md mb-6 flex items-center justify-between text-sm font-medium cursor-pointer hover:bg-[#0F766E]/15 transition-colors">
               <span>3 interventions awaiting your approval →</span>
-            </div>
+            </Link>
           </FadeIn>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
             <div className="lg:col-span-9">
@@ -176,7 +176,7 @@ export default function ClinicianRoster() {
           <AddPatientModal open={addOpen} onClose={() => setAddOpen(false)} />
           <FadeIn delay={0.3}>
             <div className="space-y-4">
-              <div className="bg-orange-50/30 border border-[#E7E5E4] rounded-xl p-6 shadow-[0_2px_4px_rgba(28,25,23,0.02)] transition-shadow hover:shadow-[0_4px_12px_rgba(28,25,23,0.05)]">
+              <Link to="/clinician/detail" className="block bg-orange-50/30 border border-[#E7E5E4] rounded-xl p-6 shadow-[0_2px_4px_rgba(28,25,23,0.02)] transition-all hover:shadow-[0_4px_12px_rgba(28,25,23,0.05)] hover:-translate-y-0.5">
               <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                 <div className="flex items-center gap-4 lg:w-1/3">
                   <div className="relative">
@@ -211,7 +211,7 @@ export default function ClinicianRoster() {
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[12px] font-semibold" style={{ backgroundColor: `${ashaRiskC.ring}1a`, color: ashaRiskC.ring }}>{ashaRiskC.label}</span>
                 </div>
               </div>
-            </div>
+            </Link>
             <div className="bg-white border border-[#E7E5E4] rounded-xl p-6 shadow-[0_1px_2px_rgba(28,25,23,0.02)] transition-shadow hover:shadow-[0_4px_12px_rgba(28,25,23,0.05)]">
               <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                 <div className="flex items-center gap-4 lg:w-1/3">

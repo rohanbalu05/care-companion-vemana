@@ -107,8 +107,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select('status, scheduled_at, taken_at, medication_id')
         .eq('patient_id', patientId).gte('scheduled_at', sevenDaysAgo).order('scheduled_at', { ascending: false }),
       supabase.from('interventions')
-        .select('id, recommendation_text, citation, clinical_reasoning, status, sent_message_text, created_at')
-        .eq('patient_id', patientId).order('created_at', { ascending: false }).limit(5),
+        .select('id, recommendation_text, citation, clinical_reasoning, status, sent_message_text, sent_at, approved_at, created_at')
+        .eq('patient_id', patientId).order('created_at', { ascending: false }).limit(15),
       supabase.from('guardians')
         .select('full_name, phone, relationship, address')
         .eq('patient_id', patientId).limit(1)
@@ -190,6 +190,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       clinical_reasoning: i.clinical_reasoning,
       status: i.status,
       sent_message_text: i.sent_message_text,
+      sent_at: i.sent_at,
+      approved_at: i.approved_at,
       created_at: i.created_at
     }));
 

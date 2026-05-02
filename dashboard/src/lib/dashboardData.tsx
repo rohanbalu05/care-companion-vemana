@@ -56,19 +56,30 @@ export type DashboardData = {
     clinical_reasoning: string | null;
     status: string;
     sent_message_text: string | null;
+    sent_at: string | null;
+    approved_at: string | null;
     created_at: string;
   }>;
   _meta: { generated_at: string; patient_id: string };
 };
+
+type InterventionPatch = Partial<DashboardData['interventions'][number]>;
 
 type Ctx = {
   data: DashboardData | null;
   loading: boolean;
   error: string | null;
   refresh: () => void;
+  patchIntervention: (id: string, patch: InterventionPatch) => void;
 };
 
-const DashboardContext = createContext<Ctx>({ data: null, loading: true, error: null, refresh: () => {} });
+const DashboardContext = createContext<Ctx>({
+  data: null,
+  loading: true,
+  error: null,
+  refresh: () => {},
+  patchIntervention: () => {}
+});
 
 type ProviderProps = {
   patientId?: string;
@@ -107,8 +118,18 @@ export function DashboardProvider({ patientId, token, guardianToken, children }:
     return () => { aborted = true; };
   }, [patientId, token, guardianToken, tick]);
 
+  function patchIntervention(id: string, patch: InterventionPatch) {
+    setData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        interventions: prev.interventions.map(i => i.id === id ? { ...i, ...patch } : i)
+      };
+    });
+  }
+
   return (
-    <DashboardContext.Provider value={{ data, loading, error, refresh: () => setTick(t => t + 1) }}>
+    <DashboardContext.Provider value={{ data, loading, error, refresh: () => setTick(t => t + 1), patchIntervention }}>
       {children}
     </DashboardContext.Provider>
   );
