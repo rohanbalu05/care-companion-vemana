@@ -47,6 +47,8 @@ function relativeLabel(iso: string | null | undefined): string {
 
 function isFbg(t: string) { return t === 'fbg' || t === 'glucose_fasting'; }
 function isPpbg(t: string) { return t === 'ppbg' || t === 'glucose_postprandial'; }
+function isRandomGlucose(t: string) { return t === 'glucose_random'; }
+function isAnyGlucose(t: string) { return isFbg(t) || isPpbg(t) || isRandomGlucose(t); }
 
 function toRiskLevel(score: number, hasCriticalEvent: boolean): 'critical' | 'elevated' | 'watch' | 'stable' {
   if (hasCriticalEvent) return 'critical';
@@ -160,13 +162,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const bpRows = allVitals.filter((v: any) => v.vital_type === 'bp');
     const fbgRows = allVitals.filter((v: any) => isFbg(v.vital_type));
     const ppbgRows = allVitals.filter((v: any) => isPpbg(v.vital_type));
+    const randomGlucoseRows = allVitals.filter((v: any) => isRandomGlucose(v.vital_type));
+    const anyGlucoseRows = allVitals.filter((v: any) => isAnyGlucose(v.vital_type));
 
     const latestBp = bpRows[0] || null;
     const latestFbg = fbgRows[0] || null;
     const latestPpbg = ppbgRows[0] || null;
+    const latestAnyGlucose = anyGlucoseRows[0] || null;
 
     const last14BpAsc = [...bpRows].sort((a: any, b: any) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime());
-    const last14GlucAsc = [...fbgRows, ...ppbgRows].sort((a: any, b: any) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime());
+    const last14GlucAsc = [...anyGlucoseRows].sort((a: any, b: any) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime());
 
     const wellnessRows = wellnessRes.data || [];
     const todayWellness = wellnessRows[0] || null;
@@ -179,6 +184,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const adhPct = adhTotal > 0 ? Math.round((adhTaken / adhTotal) * 100) : null;
 
     const last14Adherence = adhRows.slice(0, 14).reverse().map((r: any) => r.status);
+
+    const adh14ByDay: Record<string, 'taken' | 'missed' | 'pending'> = {};
+    for (const r of (adh30Res.data || []) as any[]) {
+      const k = (r.scheduled_at || '').slice(0, 10);
+      if (!k) continue;
+      if (r.status === 'missed') {
+        adh14ByDay[k] = 'missed';
+      } else if (r.status === 'taken' || r.status === 'late') {
+        if (adh14ByDay[k] !== 'missed') adh14ByDay[k] = 'taken';
+      } else if (!adh14ByDay[k]) {
+        adh14ByDay[k] = 'pending';
+      }
+    }
+    const adh14Days: Array<{ date: string; status: 'taken' | 'missed' | 'pending' }> = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
+      const k = d.toISOString().slice(0, 10);
+      adh14Days.push({ date: k, status: adh14ByDay[k] || 'pending' });
+    }
 
     const riskEvent = (riskRes.data || [])[0] || null;
     const hasCritical = (riskRes.data || []).some((r: any) => r.severity === 'critical' || r.severity === 'high');
@@ -260,12 +284,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         recorded_at: v.recorded_at
       });
     }
-    for (const v of [...fbgRows, ...ppbgRows].slice(0, 8)) {
-      const high = isFbg(v.vital_type) ? Number(v.value_numeric) >= 140 : Number(v.value_numeric) >= 200;
+    for (const v of anyGlucoseRows.slice(0, 8)) {
+      const numeric = Number(v.value_numeric);
+      const high = isFbg(v.vital_type) ? numeric >= 140
+        : isPpbg(v.vital_type) ? numeric >= 200
+        : numeric >= 180;
+      const kindLabel = isFbg(v.vital_type) ? 'Fasting'
+        : isPpbg(v.vital_type) ? 'Post-meal'
+        : 'Random';
+      const detail = isRandomGlucose(v.vital_type) && !high ? 'Awaiting fasting/post-meal context'
+        : high ? 'Above usual' : null;
       recentEvents.push({
         kind: 'vital_glucose',
-        label: `${isFbg(v.vital_type) ? 'Fasting' : 'Post-meal'} glucose ${v.value_numeric} mg/dL`,
-        detail: high ? 'Above usual' : null,
+        label: `${kindLabel} glucose ${v.value_numeric} mg/dL`,
+        detail,
         severity: high ? 'warn' : 'info',
         recorded_at: v.recorded_at
       });
@@ -403,6 +435,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           relative: relativeLabel(latestPpbg.recorded_at),
           out_of_range: Number(latestPpbg.value_numeric) >= 200
         } : null,
+        latest_glucose_any: latestAnyGlucose ? {
+          value: Number(latestAnyGlucose.value_numeric),
+          unit: latestAnyGlucose.unit || 'mg/dL',
+          kind: isFbg(latestAnyGlucose.vital_type) ? 'fasting'
+            : isPpbg(latestAnyGlucose.vital_type) ? 'post_meal'
+            : 'random',
+          recorded_at: latestAnyGlucose.recorded_at,
+          relative: relativeLabel(latestAnyGlucose.recorded_at),
+          out_of_range: isFbg(latestAnyGlucose.vital_type)
+            ? Number(latestAnyGlucose.value_numeric) >= 140
+            : isPpbg(latestAnyGlucose.vital_type)
+              ? Number(latestAnyGlucose.value_numeric) >= 200
+              : Number(latestAnyGlucose.value_numeric) >= 180
+        } : null,
         last_14_bp: last14BpAsc.map((v: any) => ({
           recorded_at: v.recorded_at,
           systolic: Number(v.value_systolic),
@@ -411,7 +457,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         last_14_glucose: last14GlucAsc.map((v: any) => ({
           recorded_at: v.recorded_at,
           value: Number(v.value_numeric),
-          kind: isFbg(v.vital_type) ? 'fbg' : 'ppbg'
+          kind: isFbg(v.vital_type) ? 'fbg' : isPpbg(v.vital_type) ? 'ppbg' : 'random'
         }))
       },
       wellness: {
@@ -430,7 +476,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         missed: adhMissed,
         total: adhTotal,
         pct: adhPct,
-        last_14_status: last14Adherence
+        last_14_status: last14Adherence,
+        last_14_days: adh14Days
       },
       active_medications: medsList.map((m: any) => ({
         drug_name: m.drug_name,

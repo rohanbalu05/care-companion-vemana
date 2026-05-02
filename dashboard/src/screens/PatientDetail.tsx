@@ -207,7 +207,7 @@ export default function PatientDetail({ initialPanelOpen = false }: { initialPan
               <RiskStoryTimeline
                 bp={data?.vitals.last_14_bp || []}
                 glucose={data?.vitals.last_14_glucose || []}
-                adherence={{ last_14_status: data?.adherence_7d.last_14_status || [] }}
+                adherence={data?.adherence_7d || { taken: 0, missed: 0, total: 0, pct: null, last_14_status: [], last_14_days: [] }}
                 riskEvents={data?.risk.events || []}
                 recentEvents={data?.recent_events || []}
                 onMarkerClick={(eventId) => openPanel(eventId)}

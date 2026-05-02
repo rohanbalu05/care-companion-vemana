@@ -1,0 +1,199 @@
+[33mcommit b32feeb99270e413fe221d5d18c3f1bfc5c5b2eb[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31msubmission/main[m[33m, [m[1;31morigin/main[m[33m, [m[1;32mbackup-before-rewrite[m[33m)[m
+Author: Rohan Balu <rohanbalu05@gmail.com>
+Commit: Rohan Balu <rohanbalu05@gmail.com>
+
+    Migrate to Claude-only LLMs (FAST=haiku-4.5, SMART=sonnet-4)
+    
+    .env.local + .env.example:
+    - LLM_MODEL_FAST: openai/gpt-4o-mini → anthropic/claude-haiku-4.5
+    - LLM_MODEL_SMART: google/gemini-2.5-flash → anthropic/claude-sonnet-4
+    - All other env vars preserved.
+    
+    api/telegram.ts:
+    - LLM_MODEL_FAST fallback: openai/gpt-4o-mini → anthropic/claude-haiku-4.5
+    - VISION_MODEL constant removed; LLM_MODEL_SMART read from env with
+      anthropic/claude-sonnet-4 fallback.
+    - All 4 OpenRouter call bodies now use the right env var:
+      * line 260 (callOpenRouter, text/voice intent) → LLM_MODEL_FAST
+      * line 304 (callOcrVision, prescription) → LLM_MODEL_SMART
+      * line 406 (callBpVision, BP monitor) → LLM_MODEL_SMART
+      * line 456 (callGlucoseVision, glucometer) → LLM_MODEL_SMART
+    - Console error tag also updated to print LLM_MODEL_SMART.
+    
+    api/evaluate-risk.ts:
+    - RISK_LLM_MODEL constant renamed to LLM_MODEL_SMART, read from env with
+      anthropic/claude-sonnet-4 fallback.
+    - callRiskLlm body now uses LLM_MODEL_SMART.
+    
+    lib/imageClassifier.ts:
+    - VISION_MODEL constant renamed to LLM_MODEL_SMART, env-driven.
+    - classifyImage body now uses LLM_MODEL_SMART.
+    
+    CLAUDE.md Stack section:
+    - Removed "or openai/gpt-4o-mini" alternative from fast intent line.
+    - Added explicit env var names next to each model (LLM_MODEL_SMART /
+      LLM_MODEL_FAST) for clarity.
+    
+    Vision/OCR continues to use LLM_MODEL_SMART — no separate vision env var
+    introduced. Sonnet 4 accepts image_url content blocks via OpenRouter, so
+    the prescription OCR path that previously replied "Got it, I've noted
+    this" should now extract drugs end-to-end on a model swap alone.
+    
+    Final grep across repo for "gpt-4o-mini", "gpt-4o", "gemini" returns
+    zero matches outside of this commit message itself.
+
+[33mcommit c97931fed98d9b646ce680fbf11b534181d3d125[m
+Author: Rohan Balu <rohanbalu05@gmail.com>
+Commit: Rohan Balu <rohanbalu05@gmail.com>
+
+    C4: live Risk Story Timeline + Reasoning Trace
+    
+    api/dashboard-data — risk events expanded:
+    - The risk block now returns events[] with id, event_type, severity,
+      rule_fired, narrative_text, guideline_citation, detected_at + relative
+      label, full data_point_refs, llm_reasoning_trace, primary_diagnosis_id,
+      involved_diagnosis_ids. 8 most recent events.
+    
+    RiskStoryTimeline — fully rewritten as a data-driven component:
+    - Accepts bp / glucose / adherence / riskEvents / recentEvents as props.
+    - 14-day axis is computed from today backwards (no fixed Day 1 / Day 14
+      hardcoded). Each day key maps the actual reading or null.
+    - BP and FBG line charts are computed from real averages per day and
+      rendered with auto-scaled Y axis (clamped to include the 140 threshold
+      so the danger band is always visible).
+    - Medication adherence row driven by adherence_7d.last_14_status; green
+      for taken/late, red for missed, grey for pending.
+    - Symptom voice-note markers driven by recent_events kind=symptom.
+    - Risk-event circles map to the actual risk_event IDs returned by the
+      API; clicking one opens the trace panel for that specific event.
+    - Hover tooltip shows the actual date, BP avg, FBG avg, medication state.
+    - Empty state when patient has no 14-day activity at all.
+    - Pattern narrative section now renders the latest event's narrative_text
+      + relative label + actual guideline_citation chip; no hardcoded
+      "Mrs. Sharma's blood pressure" copy.
+    
+    ReasoningTracePanel — fully rewritten as a data-driven component:
+    - Accepts events[] + eventId as props. Resolves the selected event or
+      falls back to the latest. Empty state when no events exist.
+    - Severity pill, title, and detected timestamp come from the real event.
+    - "Comorbidity escalation" badge surfaces when severity_modifier is set
+      in data_point_refs.
+    - Header pill row shows up to 6 alternative events with their relative
+      timestamps so the clinician can navigate between them.
+    - "Data points referenced" list rendered from data_point_refs.data_points;
+      icon picked from table type (vitals / adherence_events / symptoms).
+    - "Rules fired" rendered from data_point_refs.rules_fired (or fallback to
+      rule_fired column when missing).
+    - "Clinical narrative" rendered from llm_reasoning_trace.narrative or
+      the persisted narrative_text column.
+    - "Drafted Telegram message" surfaced when llm_reasoning_trace.intervention
+      _message is present, with a suggested_action chip.
+    - "Reference" panel uses the actual guideline_citation, not a hardcoded
+      RSSDI 2022 §4.3 quote.
+    
+    PatientDetail — threads vitals.last_14_bp/glucose, adherence_7d,
+    risk.events, and recent_events into both components.
+
+[33mcommit 54144624d537dc3eda6f182f874966146d607bd1[m
+Author: Rohan Balu <rohanbalu05@gmail.com>
+Commit: Rohan Balu <rohanbalu05@gmail.com>
+
+    C3: live patient & guardian dashboards
+    
+    api/dashboard-data extended:
+    - adds 30-day per-medication adherence (medications_adherence) with auto
+      inferred therapeutic purpose ("Blood pressure", "Diabetes", "Cholesterol",
+      "Anti-platelet") from drug name.
+    - adds recent_events feed: last 14d of vitals + missed adherence + symptoms
+      + sent interventions, normalised to {kind, label, detail, severity,
+      language, recorded_at, relative}, sorted desc, capped at 12.
+    - adds check_in.last_7_days array (one entry per day with logged: bool)
+      derived from any vitals/symptoms/taken-doses on that day, plus a streak
+      count from today backwards.
+    
+    Patient dashboard now data-driven:
+    - "Last 14 days" mini-charts: BP and FBG paths computed live from
+      vitals.last_14_bp / last_14_glucose. Empty fallback prompts user to log
+      on Telegram. Medication dots driven by adherence_7d.last_14_status with
+      green/red/grey based on taken/missed/pending.
+    - Streak chip: shows live N-day streak (or "Start your streak today" when
+      zero) in English + Hindi.
+    - 7-day check-in row: each circle reflects an actual day with check/close
+      based on whether the patient logged anything; today gets a stronger fill.
+    - "Recent Status" cards now show relative timestamps (e.g. "2h ago") instead
+      of "Day 12" / "Day 11" demo-persona labels.
+    - "Message from Clinic" card now renders the actual most-recent sent
+      intervention text (in patient's language, italicised) instead of a
+      hardcoded "Dr. Mehta sent you a message" string. Falls back to an empty
+      state when no message has been sent.
+    
+    Guardian dashboard now data-driven:
+    - "Latest message from clinic" doctor's-note card shows the real most-recent
+      sent intervention (or empty state).
+    - Recent events timeline driven by recent_events feed: each row picks an
+      icon (vital_signs / water_drop / medication / mic / mark_chat_read) and
+      severity color (alert / warn / info) from the event payload, with
+      relative timestamp as the leading column.
+    - Medication cards driven by medications_adherence: shows live drug name,
+      inferred purpose, dose+frequency, 30-day adherence %, and a Below-usual /
+      Okay / No-data badge. Multiple drugs render dynamically.
+    - Check-in consistency: 7 circles now reflect the patient's actual logging
+      pattern from check_in.last_7_days, with Mon/Tue/etc derived from the
+      real date. Title attribute shows the date for hover.
+
+[33mcommit f01c15c4428d42018c344f386479f23a183a9af3[m
+Author: Rohan Balu <rohanbalu05@gmail.com>
+Commit: Rohan Balu <rohanbalu05@gmail.com>
+
+    C2: live roster — data-driven cards, working search, live stats
+    
+    - New /api/patients-roster endpoint aggregates all patients with their
+      latest BP, FBG, 7-day adherence %, condition list, telegram-bound state,
+      pending-intervention count, BP trend sparkline, and a derived risk level
+      (critical / elevated / watch / stable). Sorted by risk descending then
+      most-recent contact.
+    - ClinicianRoster fully rewritten:
+      * Replaced 5 hardcoded patient cards with a list driven by the new API.
+      * 4 stat cards (Active patients, High risk, Interventions pending,
+        Telegram-linked) now show live counts, not the previous 47/6/12/3
+        placeholders. Telegram-linked card shows a percentage of the roster.
+      * Search bar wired: filters by patient name OR condition string.
+      * Filter chips (All / Critical / Elevated / Watch / Stable) wired with
+        live counts; chips disable themselves when no patients match.
+      * Cards render initials when no avatar is present, BP/FBG show "—"
+        when missing, and a small Telegram-blue dot marks bound patients.
+      * BP trend sparkline is computed from each patient's last 6 BP readings.
+      * Empty states: "Your roster is empty" with onboard CTA when no patients,
+        "No matches" when search/filter yields nothing.
+      * 8s polling + visibilitychange refetch.
+      * Header shows live "Live · HH:MM:SS" indicator with a pulsing dot.
+      * Removed dead chrome (notifications/filter/more_vert) from header.
+      * Removed the fake "Clinic activity, last 14 days" sparkbar.
+    - Sidebar "Onboarding" link is now a button that opens AddPatientModal in
+      place. From PatientDetail / InterventionsPage it routes to /clinician?add=1
+      which the roster reads to auto-open the modal.
+    - "X interventions awaiting your approval" banner now shows the live count
+      and only renders when there's something to review.
+
+[33mcommit 3f43db051f579ec1e445cca9e2c888d8619d6d1a[m
+Author: Rohan Balu <rohanbalu05@gmail.com>
+Commit: Rohan Balu <rohanbalu05@gmail.com>
+
+    C1: pre-production framing — strip hackathon/demo language
+    
+    - Landing header pill changed from "Demo for hackathon judges" to a real
+      "Sign in" link that goes to /login.
+    - Role-card hints rewritten as product copy ("For doctors and nurses
+      managing chronic patients", "A private link your clinic shares with
+      you", "A private link nominated by the patient at enrolment") instead
+      of "Demo: opens Mrs. Asha Sharma's view".
+    - CTA labels: Patient says "Open my dashboard" not "Use demo patient
+      view"; Guardian says "Open guardian view" not "Use demo guardian view".
+    - Footer: removed "Built for the Anthropic Hackathon · Bangalore · 2026";
+      replaced with product attribution and reordered links.
+    - LoginPage: demo session button now reads "Continue with sample clinic
+      data" with subtitle explaining sample clinic is pre-populated, instead
+      of "Use demo session as Dr. Priya Mehta — skips Supabase Auth for the
+      hackathon demo".
+    - index.html title + meta description rewritten as product copy for SEO
+      / browser tab without giving away the hackathon framing.

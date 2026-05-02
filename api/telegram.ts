@@ -507,32 +507,30 @@ async function persistExtractions(
   const now = new Date().toISOString();
 
   for (const v of llm.vitals || []) {
-    try {
-      await supabase.from('vitals').insert({
-        patient_id: patient.id,
-        vital_type: v.kind,
-        value_systolic: v.value_systolic,
-        value_diastolic: v.value_diastolic,
-        value_numeric: v.value_numeric,
-        unit: v.unit,
-        source: 'telegram_text',
-        recorded_at: now
-      });
-    } catch (e) { console.error('vitals insert failed', e); }
+    const { error: vErr } = await supabase.from('vitals').insert({
+      patient_id: patient.id,
+      vital_type: v.kind,
+      value_systolic: v.value_systolic,
+      value_diastolic: v.value_diastolic,
+      value_numeric: v.value_numeric,
+      unit: v.unit,
+      source: 'telegram_text',
+      recorded_at: now
+    });
+    if (vErr) console.error('vitals insert failed', { code: vErr.code, message: vErr.message, details: vErr.details, hint: vErr.hint, payload: v });
   }
 
   for (const s of llm.symptoms || []) {
-    try {
-      await supabase.from('symptoms').insert({
-        patient_id: patient.id,
-        symptom_text_raw: rawText,
-        symptom_text_normalized: s.name,
-        language_detected: llm.detected_language,
-        severity: s.severity,
-        source: 'telegram_text',
-        recorded_at: now
-      });
-    } catch (e) { console.error('symptoms insert failed', e); }
+    const { error: sErr } = await supabase.from('symptoms').insert({
+      patient_id: patient.id,
+      symptom_text_raw: rawText,
+      symptom_text_normalized: s.name,
+      language_detected: llm.detected_language,
+      severity: s.severity,
+      source: 'telegram_text',
+      recorded_at: now
+    });
+    if (sErr) console.error('symptoms insert failed', { code: sErr.code, message: sErr.message, details: sErr.details });
   }
 
   if (llm.language_switch_request) {
@@ -706,29 +704,27 @@ async function extractBP(patient: LinkedPatient, dataUrl: string) {
   }
 
   const now = new Date().toISOString();
-  try {
-    await supabase.from('vitals').insert({
+  const { error: bpErr } = await supabase.from('vitals').insert({
+    patient_id: patient.id,
+    vital_type: 'bp',
+    value_systolic: validSys,
+    value_diastolic: validDia,
+    unit: 'mmHg',
+    source: 'photo',
+    recorded_at: now
+  });
+  if (bpErr) console.error('BP vitals insert failed', { code: bpErr.code, message: bpErr.message, details: bpErr.details, sys: validSys, dia: validDia });
+
+  if (validPulse != null) {
+    const { error: hrErr } = await supabase.from('vitals').insert({
       patient_id: patient.id,
-      vital_type: 'bp',
-      value_systolic: validSys,
-      value_diastolic: validDia,
-      unit: 'mmHg',
+      vital_type: 'heart_rate',
+      value_numeric: validPulse,
+      unit: 'bpm',
       source: 'photo',
       recorded_at: now
     });
-  } catch (e) { console.error('BP vitals insert failed', e); }
-
-  if (validPulse != null) {
-    try {
-      await supabase.from('vitals').insert({
-        patient_id: patient.id,
-        vital_type: 'heart_rate',
-        value_numeric: validPulse,
-        unit: 'bpm',
-        source: 'photo',
-        recorded_at: now
-      });
-    } catch (e) { console.error('Pulse vitals insert failed', e); }
+    if (hrErr) console.error('Pulse vitals insert failed', { code: hrErr.code, message: hrErr.message, details: hrErr.details, pulse: validPulse });
   }
 
   const high = validSys >= 140 || validDia >= 90;
@@ -760,16 +756,15 @@ async function extractGlucose(patient: LinkedPatient, dataUrl: string) {
     : g.reading_time === 'post_meal' ? 'glucose_postprandial'
     : 'glucose_random';
 
-  try {
-    await supabase.from('vitals').insert({
-      patient_id: patient.id,
-      vital_type: vitalType,
-      value_numeric: value,
-      unit: 'mg/dL',
-      source: 'photo',
-      recorded_at: new Date().toISOString()
-    });
-  } catch (e) { console.error('Glucose vitals insert failed', e); }
+  const { error: gErr } = await supabase.from('vitals').insert({
+    patient_id: patient.id,
+    vital_type: vitalType,
+    value_numeric: value,
+    unit: 'mg/dL',
+    source: 'photo',
+    recorded_at: new Date().toISOString()
+  });
+  if (gErr) console.error('Glucose vitals insert failed', { code: gErr.code, message: gErr.message, details: gErr.details, value, vitalType });
 
   if (vitalType === 'glucose_random') {
     await sendTelegramText(patient.telegram_chat_id, staticMessages.glucoseRecordedAskMeal(value, lang));

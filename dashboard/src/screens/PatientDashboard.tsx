@@ -41,6 +41,7 @@ export default function PatientDashboard() {
   const voucherPct = score != null ? Math.min(100, Math.round((score / target) * 100)) : 0;
   const bp = data?.vitals.latest_bp;
   const fbg = data?.vitals.latest_fbg;
+  const glucose = data?.vitals.latest_glucose_any;
   const adh7 = data?.adherence_7d;
   const last14 = data?.adherence_7d.last_14_status || [];
   const last14Bp = data?.vitals.last_14_bp || [];
@@ -279,13 +280,15 @@ export default function PatientDashboard() {
                     <span className="material-symbols-outlined">water_drop</span>
                   </div>
                   <div>
-                    <div className="font-label text-label text-on-surface-variant">Fasting glucose</div>
-                    <div className="font-body-sm text-body-sm text-outline text-[11px]">{fbg?.relative || 'No reading yet'}</div>
+                    <div className="font-label text-label text-on-surface-variant">
+                      Blood sugar{glucose ? ` · ${glucose.kind === 'fasting' ? 'fasting' : glucose.kind === 'post_meal' ? 'post-meal' : 'random'}` : ''}
+                    </div>
+                    <div className="font-body-sm text-body-sm text-outline text-[11px]">{glucose?.relative || 'No reading yet'}</div>
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="font-vital-lg text-vital-lg text-on-surface">{fbg ? fbg.value : '—'} <span className="text-sm font-body text-outline">{fbg?.unit || 'mg/dL'}</span></span>
-                  {fbg?.out_of_range && <span className="bg-tertiary text-on-tertiary text-[10px] px-2 py-0.5 rounded-full font-label mt-1">above usual</span>}
+                  <span className="font-vital-lg text-vital-lg text-on-surface">{glucose ? glucose.value : '—'} <span className="text-sm font-body text-outline">{glucose?.unit || 'mg/dL'}</span></span>
+                  {glucose?.out_of_range && <span className="bg-tertiary text-on-tertiary text-[10px] px-2 py-0.5 rounded-full font-label mt-1">above usual</span>}
                 </div>
               </div>
               <div className="bg-error-container/40 border border-error-container rounded-lg p-3 flex justify-between items-center">

@@ -33,7 +33,7 @@ function severityFromDb(s: string | null): Severity {
 type Props = {
   bp: DashboardData['vitals']['last_14_bp'];
   glucose: DashboardData['vitals']['last_14_glucose'];
-  adherence: { last_14_status: string[] };
+  adherence: DashboardData['adherence_7d'];
   riskEvents: DashboardData['risk']['events'];
   recentEvents: DashboardData['recent_events'];
   onMarkerClick?: (eventId: string) => void;
@@ -68,12 +68,17 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
   const gluByDay = useMemo(() => {
     const map: Record<string, number[]> = {};
     for (const r of glucose || []) {
-      if (r.kind !== 'fbg') continue;
       const k = dayKey(r.recorded_at);
       (map[k] ||= []).push(Number(r.value));
     }
     return map;
   }, [glucose]);
+
+  const adhByDay = useMemo(() => {
+    const map: Record<string, 'taken' | 'missed' | 'pending'> = {};
+    for (const d of adherence?.last_14_days || []) map[d.date] = d.status;
+    return map;
+  }, [adherence]);
 
   const bpSeries = days.map(d => {
     const arr = bpByDay[d.key];
@@ -115,7 +120,7 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
   const bpPath = buildPath(bpSeries, yForBP);
   const gluPath = buildPath(gluSeries, yForGlu);
 
-  const adhStatuses = (adherence?.last_14_status || []).slice(-14);
+  const adhPerDay = days.map(d => adhByDay[d.key] || 'pending');
 
   const riskMarkers = (riskEvents || []).map(ev => {
     const k = dayKey(ev.detected_at);
@@ -133,7 +138,7 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
     .filter(m => m.idx >= 0)
     .slice(0, 3);
 
-  const hasAnyData = bpVals.length > 0 || gluVals.length > 0 || adhStatuses.length > 0 || riskMarkers.length > 0;
+  const hasAnyData = bpVals.length > 0 || gluVals.length > 0 || adhPerDay.some(s => s !== 'pending') || riskMarkers.length > 0;
 
   function onMove(e: MouseEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -212,8 +217,8 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
             <text x={CHART_LEFT - 6} y={ADH_TOP + 22} textAnchor="end" fontSize="10" fill="#3e4947">Meds</text>
 
             {Array.from({ length: 14 }, (_, i) => {
-              const status = adhStatuses[adhStatuses.length - 14 + i] || 'pending';
-              const taken = status === 'taken' || status === 'late';
+              const status = adhPerDay[i];
+              const taken = status === 'taken';
               const missed = status === 'missed';
               const fill = taken ? '#16A34A' : missed ? '#DC2626' : '#D7DBD9';
               const op = taken ? 0.25 : missed ? 0.7 : 0.35;
@@ -294,8 +299,8 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
               <div className="font-mono">FBG {gluSeries[hoverIdx] ?? '—'}</div>
               <div className="opacity-80 mt-1">
                 Meds {(() => {
-                  const status = adhStatuses[adhStatuses.length - 14 + hoverIdx];
-                  if (status === 'taken' || status === 'late') return '✓';
+                  const status = adhPerDay[hoverIdx];
+                  if (status === 'taken') return '✓';
                   if (status === 'missed') return '✗';
                   return '—';
                 })()}

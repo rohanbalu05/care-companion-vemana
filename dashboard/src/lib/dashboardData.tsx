@@ -52,8 +52,9 @@ export type DashboardData = {
     latest_bp: { systolic: number; diastolic: number; recorded_at: string; relative: string; out_of_range: boolean } | null;
     latest_fbg: { value: number; unit: string; recorded_at: string; relative: string; out_of_range: boolean } | null;
     latest_ppbg: { value: number; unit: string; recorded_at: string; relative: string; out_of_range: boolean } | null;
+    latest_glucose_any: { value: number; unit: string; kind: 'fasting' | 'post_meal' | 'random'; recorded_at: string; relative: string; out_of_range: boolean } | null;
     last_14_bp: Array<{ recorded_at: string; systolic: number; diastolic: number }>;
-    last_14_glucose: Array<{ recorded_at: string; value: number; kind: 'fbg' | 'ppbg' }>;
+    last_14_glucose: Array<{ recorded_at: string; value: number; kind: 'fbg' | 'ppbg' | 'random' }>;
   };
   wellness: {
     score: number | null;
@@ -61,7 +62,14 @@ export type DashboardData = {
     trend: Array<{ date: string; score: number }>;
     voucher_target: number;
   };
-  adherence_7d: { taken: number; missed: number; total: number; pct: number | null; last_14_status: string[] };
+  adherence_7d: {
+    taken: number;
+    missed: number;
+    total: number;
+    pct: number | null;
+    last_14_status: string[];
+    last_14_days: Array<{ date: string; status: 'taken' | 'missed' | 'pending' }>;
+  };
   active_medications: Array<{ drug_name: string; dose: string | null; frequency: string | null; instructions: string | null; prescribed_on: string | null }>;
   medications_adherence: Array<{
     drug_name: string;
