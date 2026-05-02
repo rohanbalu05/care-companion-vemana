@@ -106,16 +106,16 @@ export default function LoginPage() {
             </button>
           </form>
           <div className="my-6 flex items-center gap-3 text-[12px] uppercase tracking-wider text-outline">
-            <span className="flex-1 h-px bg-outline-variant" /> demo <span className="flex-1 h-px bg-outline-variant" />
+            <span className="flex-1 h-px bg-outline-variant" /> or <span className="flex-1 h-px bg-outline-variant" />
           </div>
           <button
             onClick={startDemoSession}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md border border-outline-variant text-on-surface font-medium text-sm hover:bg-surface-container-low transition-colors"
           >
-            <ShieldCheck size={16} className="text-primary-container" /> Use demo session as Dr. Priya Mehta
+            <ShieldCheck size={16} className="text-primary-container" /> Continue with sample clinic data
           </button>
           <p className="mt-3 text-[11px] text-outline text-center">
-            Skips Supabase Auth for the hackathon demo. Replaces with a real auth user pre-launch.
+            Sample clinic comes pre-populated so you can explore the portal without onboarding patients first.
           </p>
         </div>
       </main>

@@ -36,9 +36,12 @@ export default function LandingPage() {
               <span className="text-[11px] text-outline">Clinical Portal</span>
             </div>
           </div>
-          <span className="text-[11px] font-medium uppercase tracking-wider px-3 py-1.5 rounded-full bg-primary-container/15 text-primary-container border border-primary-container/30">
-            Demo for hackathon judges
-          </span>
+          <a
+            href="/login"
+            className="text-[12px] font-medium px-3 py-1.5 rounded-full text-primary-container hover:bg-primary-container/10 border border-primary-container/30 transition-colors"
+          >
+            Sign in
+          </a>
         </header>
 
         <div className="relative z-10 flex-1 flex items-center justify-center px-6 md:px-10 pb-20">
@@ -100,7 +103,7 @@ export default function LandingPage() {
               body="Manage your roster, review AI-detected risk events, approve interventions in one tap."
               cta="Open clinical dashboard"
               href="/login"
-              hint="Demo: sign in as Dr. Priya Mehta"
+              hint="For doctors and nurses managing chronic patients"
               accent="bg-primary-container/10 text-primary-container"
             />
             <RoleCard
@@ -108,9 +111,9 @@ export default function LandingPage() {
               icon={<HeartPulse size={22} />}
               title="Patient"
               body="Care Companion checks in with you on Telegram, in your language. Your dashboard shows your wellness journey."
-              cta="Use demo patient view"
+              cta="Open my dashboard"
               href={`/patient?token=${DEMO_PATIENT_TOKEN}`}
-              hint="Demo: opens Mrs. Asha Sharma's view"
+              hint="A private link your clinic shares with you after enrolment"
               accent="bg-tertiary-fixed/40 text-tertiary"
             />
             <RoleCard
@@ -118,9 +121,9 @@ export default function LandingPage() {
               icon={<Users size={22} />}
               title="Guardian"
               body="Quiet peace-of-mind. See how your loved one is doing without intruding on their day."
-              cta="Use demo guardian view"
+              cta="Open guardian view"
               href={`/guardian?token=${DEMO_GUARDIAN_TOKEN}`}
-              hint="Demo: opens Rohan Sharma's view"
+              hint="A private link nominated by the patient at enrolment"
               accent="bg-secondary-container/60 text-on-secondary-container"
             />
           </div>
@@ -145,11 +148,14 @@ export default function LandingPage() {
 
       <footer className="px-6 md:px-10 py-10 border-t border-outline-variant/60 text-sm text-on-surface-variant">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <span>Built for the Anthropic Hackathon · Bangalore · 2026</span>
+          <span className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary-container text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>health_and_safety</span>
+            Care Companion · Built for chronic care in India
+          </span>
           <nav className="flex items-center gap-5 text-[12px]">
+            <Link className="hover:text-on-surface" to="/login">Sign in</Link>
+            <a className="hover:text-on-surface" href="mailto:hello@carecompanion.health">Contact</a>
             <a className="inline-flex items-center gap-1 hover:text-on-surface" href="https://github.com/rohanbalu05/care-companion-vemana" target="_blank" rel="noreferrer"><ExternalLink size={14} /> GitHub</a>
-            <Link className="hover:text-on-surface" to="/clinician">Clinical dashboard</Link>
-            <a className="hover:text-on-surface" href="mailto:rohanbalu05@gmail.com">Contact</a>
           </nav>
         </div>
       </footer>
