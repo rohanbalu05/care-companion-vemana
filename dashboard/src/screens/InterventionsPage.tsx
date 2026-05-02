@@ -64,6 +64,13 @@ export default function InterventionsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const id = setInterval(load, 8000);
+    const onVis = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [load]);
+
   async function act(item: QueueItem, action: 'approve' | 'reject') {
     if (busyId) return;
     setBusyId(item.id);

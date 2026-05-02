@@ -22,6 +22,12 @@ function yearsBetween(fromIso: string | null | undefined): number | null {
   return ageFromDob(fromIso);
 }
 
+function diagnosisDurationLabel(yrs: number | null): string {
+  if (yrs == null) return '';
+  if (yrs < 1) return '<1y';
+  return `${yrs}y`;
+}
+
 function relativeLabel(iso: string | null | undefined): string {
   if (!iso) return 'a while ago';
   const then = new Date(iso);
@@ -131,10 +137,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const diagnoses = (dxRes.data || []).map((d: any) => {
       const yrs = yearsBetween(d.diagnosed_on);
+      const durLabel = diagnosisDurationLabel(yrs);
       return {
         condition: d.condition,
         years: yrs,
-        label: yrs != null ? `${d.condition} (${yrs}y)` : d.condition,
+        label: durLabel ? `${d.condition} (${durLabel})` : d.condition,
         short: d.icd10_code?.startsWith('E11') ? 'T2DM' : d.icd10_code?.startsWith('I10') ? 'HTN' : d.condition.split(/\s+/).slice(0, 2).join(' ')
       };
     });
