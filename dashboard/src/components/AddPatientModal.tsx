@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
-import { X, Copy, Check, UserPlus } from "lucide-react";
+import { X, Copy, Check, UserPlus, ExternalLink, RefreshCw } from "lucide-react";
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) || '';
 
 type Step = 'form' | 'success' | 'error';
+type CopyKey = 'patient' | 'guardian' | 'telegram';
 
 type SuccessPayload = {
   patient_id: string;
@@ -17,12 +18,19 @@ type SuccessPayload = {
   telegram_link: string;
 };
 
+function truncateToken(token: string | null | undefined, n = 8): string {
+  if (!token) return '';
+  return token.length <= n ? token : `${token.slice(0, n)}…`;
+}
+
 export default function AddPatientModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [step, setStep] = useState<Step>('form');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [result, setResult] = useState<SuccessPayload | null>(null);
-  const [copied, setCopied] = useState<'patient' | 'telegram' | null>(null);
+  const [copied, setCopied] = useState<CopyKey | null>(null);
+  const [regenState, setRegenState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [regenMsg, setRegenMsg] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState('');
   const [age, setAge] = useState('');
@@ -36,6 +44,7 @@ export default function AddPatientModal({ open, onClose }: { open: boolean; onCl
 
   function reset() {
     setStep('form'); setSubmitting(false); setErrorMsg(null); setResult(null); setCopied(null);
+    setRegenState('idle'); setRegenMsg(null);
     setFullName(''); setAge(''); setSex(''); setDiagnosis('both'); setLanguage('hi'); setPhone('');
     setGuardianName(''); setGuardianRelationship('son'); setGuardianPhone('');
   }
@@ -82,7 +91,7 @@ export default function AddPatientModal({ open, onClose }: { open: boolean; onCl
     }
   }
 
-  async function copyTo(kind: 'patient' | 'telegram', text: string) {
+  async function copyTo(kind: CopyKey, text: string) {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(kind);
@@ -90,8 +99,35 @@ export default function AddPatientModal({ open, onClose }: { open: boolean; onCl
     } catch {}
   }
 
+  async function regenerateTelegram() {
+    if (!result?.patient_id) return;
+    setRegenState('loading');
+    setRegenMsg(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/regenerate-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patient_id: result.patient_id })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRegenState('error');
+        setRegenMsg(body?.error || `request failed (${res.status})`);
+        return;
+      }
+      setResult(prev => prev ? { ...prev, start_token: body.start_token, telegram_link: body.telegram_link } : prev);
+      setRegenState('done');
+      setRegenMsg(body?.previously_bound ? 'Fresh link issued. Note: this patient was already bound — they may need a new Telegram account to re-bind.' : 'Fresh Telegram link issued.');
+      setTimeout(() => { setRegenState('idle'); setRegenMsg(null); }, 6000);
+    } catch (e: any) {
+      setRegenState('error');
+      setRegenMsg(e?.message || 'request failed');
+    }
+  }
+
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const fullPatientLink = result?.patient_link ? `${origin}${result.patient_link}` : '';
+  const fullGuardianLink = result?.guardian_link ? `${origin}${result.guardian_link}` : '';
 
   return (
     <AnimatePresence>
@@ -212,41 +248,84 @@ export default function AddPatientModal({ open, onClose }: { open: boolean; onCl
               )}
 
               {step === 'success' && result && (
-                <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
+                <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
                   <p className="text-sm text-on-surface-variant">
-                    {fullName || 'The patient'} is now in your roster. Share these links with them.
+                    {fullName || 'The patient'} is now in your roster. Share these links to bring them online.
                   </p>
 
-                  <div className="flex flex-col gap-2">
-                    <span className="text-[12px] uppercase tracking-wider text-on-surface-variant font-medium">Patient dashboard link</span>
-                    <div className="flex items-center gap-2 bg-surface-container-low border border-outline-variant rounded-md px-3 py-2">
-                      <code className="flex-1 text-[12px] text-on-surface truncate">{fullPatientLink}</code>
-                      <button onClick={() => copyTo('patient', fullPatientLink)} className="p-1.5 rounded text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Copy patient link">
-                        {copied === 'patient' ? <Check size={14} className="text-primary-container" /> : <Copy size={14} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-center gap-3 pt-2">
-                    <span className="text-[12px] uppercase tracking-wider text-on-surface-variant font-medium self-stretch">Telegram bot — scan to bind chat</span>
-                    <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-4">
-                      <QRCodeSVG value={result.telegram_link} size={196} level="M" />
-                    </div>
-                    <div className="flex items-center gap-2 bg-surface-container-low border border-outline-variant rounded-md px-3 py-2 self-stretch">
-                      <code className="flex-1 text-[11px] text-on-surface-variant truncate">{result.telegram_link}</code>
-                      <button onClick={() => copyTo('telegram', result.telegram_link)} className="p-1.5 rounded text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Copy telegram link">
-                        {copied === 'telegram' ? <Check size={14} className="text-primary-container" /> : <Copy size={14} />}
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-outline text-center">Patient scans → taps Start → first daily check-in begins.</p>
-                  </div>
+                  <LinkSection
+                    title="Patient dashboard"
+                    primaryHref={fullPatientLink}
+                    primaryLabel="Open patient dashboard"
+                    onCopy={() => copyTo('patient', fullPatientLink)}
+                    copied={copied === 'patient'}
+                    token={truncateToken(result.access_token)}
+                  />
 
                   {result.guardian_link && (
-                    <div className="flex flex-col gap-2 border-t border-outline-variant/60 pt-4">
-                      <span className="text-[12px] uppercase tracking-wider text-on-surface-variant font-medium">Guardian dashboard link</span>
-                      <code className="text-[12px] text-on-surface bg-surface-container-low border border-outline-variant rounded-md px-3 py-2 truncate">{origin}{result.guardian_link}</code>
-                    </div>
+                    <LinkSection
+                      title="Guardian dashboard"
+                      primaryHref={fullGuardianLink}
+                      primaryLabel="Open guardian dashboard"
+                      onCopy={() => copyTo('guardian', fullGuardianLink)}
+                      copied={copied === 'guardian'}
+                      token={truncateToken(result.guardian_access_token || '')}
+                    />
                   )}
+
+                  <div className="flex flex-col gap-2 border-t border-outline-variant/60 pt-5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] uppercase tracking-wider text-on-surface-variant font-medium">Telegram bot</span>
+                      <button
+                        onClick={regenerateTelegram}
+                        disabled={regenState === 'loading'}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-medium text-on-surface-variant hover:text-primary-container transition-colors disabled:opacity-50"
+                      >
+                        {regenState === 'loading'
+                          ? <span className="inline-block w-3 h-3 rounded-full border-2 border-primary-container border-t-transparent animate-spin" />
+                          : <RefreshCw size={12} />}
+                        Regenerate link
+                      </button>
+                    </div>
+                    <div className="flex flex-col items-center gap-3 bg-surface-container-low/40 rounded-lg p-4 border border-outline-variant/60">
+                      <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-3">
+                        <QRCodeSVG value={result.telegram_link} size={240} level="M" />
+                      </div>
+                      <p className="text-[11px] text-outline text-center max-w-[220px] leading-relaxed">
+                        Patient scans → taps Start → daily check-in begins. Single-use link.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <a
+                        href={result.telegram_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-primary-container text-on-primary text-sm font-medium hover:bg-primary transition-colors"
+                      >
+                        Open in Telegram <ExternalLink size={14} />
+                      </a>
+                      <button
+                        onClick={() => copyTo('telegram', result.telegram_link)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-outline-variant text-on-surface-variant text-sm hover:bg-surface-container-low transition-colors"
+                        aria-label="Copy Telegram link"
+                      >
+                        {copied === 'telegram' ? <Check size={14} className="text-primary-container" /> : <Copy size={14} />}
+                        Copy link
+                      </button>
+                    </div>
+                    <span className="self-start text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant text-outline mt-1">
+                      token: {truncateToken(result.start_token)}
+                    </span>
+                    {regenMsg && (
+                      <p className={`text-[11px] mt-1 px-2 py-1.5 rounded-md ${
+                        regenState === 'done' ? 'bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30'
+                          : regenState === 'error' ? 'bg-error-container/40 text-on-error-container border border-error-container/60'
+                          : 'bg-surface-container border border-outline-variant text-on-surface-variant'
+                      }`}>
+                        {regenMsg}
+                      </p>
+                    )}
+                  </div>
 
                   <div className="flex justify-end gap-2">
                     <button onClick={handleClose} className="px-4 py-2 rounded-md bg-primary-container text-on-primary text-sm font-medium hover:bg-primary transition-colors">
@@ -285,5 +364,43 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-[12px] font-medium uppercase tracking-wider text-on-surface-variant">{label}</span>
       {children}
     </label>
+  );
+}
+
+function LinkSection({ title, primaryHref, primaryLabel, onCopy, copied, token }: {
+  title: string;
+  primaryHref: string;
+  primaryLabel: string;
+  onCopy: () => void;
+  copied: boolean;
+  token: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-[12px] uppercase tracking-wider text-on-surface-variant font-medium">{title}</span>
+      <div className="flex items-center gap-2">
+        <a
+          href={primaryHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-primary-container text-on-primary text-sm font-medium hover:bg-primary transition-colors"
+        >
+          {primaryLabel} <ExternalLink size={14} />
+        </a>
+        <button
+          onClick={onCopy}
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-outline-variant text-on-surface-variant text-sm hover:bg-surface-container-low transition-colors"
+          aria-label={`Copy ${title} link`}
+        >
+          {copied ? <Check size={14} className="text-primary-container" /> : <Copy size={14} />}
+          Copy link
+        </button>
+      </div>
+      {token && (
+        <span className="self-start text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-container border border-outline-variant text-outline">
+          token: {token}
+        </span>
+      )}
+    </div>
   );
 }
