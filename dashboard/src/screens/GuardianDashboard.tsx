@@ -1,8 +1,11 @@
 import { FadeIn } from "../components/FadeIn";
 import { useDashboard } from "../lib/dashboardData";
+import { DashboardLoading, DashboardError } from "../components/DashboardStateGate";
 
 export default function GuardianDashboard() {
-  const { data } = useDashboard();
+  const { data, loading, error, refresh } = useDashboard();
+  if (loading && !data) return <DashboardLoading label="Loading family view…" />;
+  if (error && !data) return <DashboardError error={error} onRetry={refresh} kind="guardian" />;
   const patient = data?.patient;
   const guardian = data?.guardian;
   const risk = data?.risk;

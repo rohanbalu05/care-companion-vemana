@@ -5,6 +5,7 @@ import { FadeIn } from "../components/FadeIn";
 import RiskStoryTimeline from "../components/RiskStoryTimeline";
 import ReasoningTracePanel from "./ReasoningTracePanel";
 import { useDashboard, riskColor } from "../lib/dashboardData";
+import { DashboardLoading, DashboardError } from "../components/DashboardStateGate";
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) || '';
 
@@ -34,6 +35,8 @@ export default function PatientDetail({ initialPanelOpen = false }: { initialPan
   const { data, loading, error, refresh, patchIntervention } = useDashboard();
   const [actionState, setActionState] = useState<ActionState>('idle');
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  if (loading && !data) return <DashboardLoading label="Loading patient view…" />;
+  if (error && !data && error !== 'invalid_or_expired_token') return <DashboardError error={error} onRetry={refresh} kind="clinician" />;
   const patient = data?.patient;
   const guardian = data?.guardian;
   const risk = data?.risk;

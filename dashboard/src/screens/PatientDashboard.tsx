@@ -1,5 +1,6 @@
 import { FadeIn } from "../components/FadeIn";
 import { useDashboard } from "../lib/dashboardData";
+import { DashboardLoading, DashboardError } from "../components/DashboardStateGate";
 
 const WELLNESS_CIRC = 282.7;
 function pct100(v: number | undefined | null, max: number): number {
@@ -8,8 +9,10 @@ function pct100(v: number | undefined | null, max: number): number {
 }
 
 export default function PatientDashboard() {
-  const { data, loading } = useDashboard();
-  const firstName = data?.patient.first_name || (loading ? '' : 'Patient');
+  const { data, loading, error, refresh } = useDashboard();
+  if (loading && !data) return <DashboardLoading label="Loading your dashboard…" />;
+  if (error && !data) return <DashboardError error={error} onRetry={refresh} kind="patient" />;
+  const firstName = data?.patient.first_name || 'Patient';
   const score = data?.wellness.score ?? null;
   const subs = data?.wellness.subscores;
   const adhPct = pct100(subs?.adherence, 35);
@@ -84,42 +87,51 @@ export default function PatientDashboard() {
               <span className="material-symbols-outlined text-[16px]">help</span>
             </button>
             <div className="w-full mt-6 space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-between font-label text-label text-on-surface-variant">
-                  <span>Adherence</span>
-                  <span className="font-vital-sm text-vital-sm">{adhPct}/100</span>
+              {!subs ? (
+                <div className="bg-surface-container-low/60 border border-outline-variant rounded-md px-3 py-3 text-center">
+                  <p className="font-body-sm text-body-sm text-on-surface">Building your wellness picture</p>
+                  <p className="font-body-sm text-[11px] text-on-surface-variant mt-0.5">Your first few daily check-ins establish your baseline.</p>
                 </div>
-                <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
-                  <div className="h-full bg-tertiary-container rounded-full" style={{ width: `${adhPct}%` }}></div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between font-label text-label text-on-surface-variant">
-                  <span>Vitals in range</span>
-                  <span className="font-vital-sm text-vital-sm">{vitalsPct}/100</span>
-                </div>
-                <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
-                  <div className="h-full bg-tertiary-container rounded-full" style={{ width: `${vitalsPct}%` }}></div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between font-label text-label text-on-surface-variant">
-                  <span>Engagement</span>
-                  <span className="font-vital-sm text-vital-sm">{engPct}/100</span>
-                </div>
-                <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full" style={{ width: `${engPct}%` }}></div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between font-label text-label text-on-surface-variant">
-                  <span>Symptom load</span>
-                  <span className="font-vital-sm text-vital-sm">{sympPct}/100</span>
-                </div>
-                <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
-                  <div className="h-full bg-primary-container rounded-full" style={{ width: `${sympPct}%` }}></div>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <div className="flex justify-between font-label text-label text-on-surface-variant">
+                      <span>Adherence</span>
+                      <span className="font-vital-sm text-vital-sm">{adhPct}/100</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+                      <div className="h-full bg-tertiary-container rounded-full" style={{ width: `${adhPct}%` }}></div>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between font-label text-label text-on-surface-variant">
+                      <span>Vitals in range</span>
+                      <span className="font-vital-sm text-vital-sm">{vitalsPct}/100</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+                      <div className="h-full bg-tertiary-container rounded-full" style={{ width: `${vitalsPct}%` }}></div>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between font-label text-label text-on-surface-variant">
+                      <span>Engagement</span>
+                      <span className="font-vital-sm text-vital-sm">{engPct}/100</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${engPct}%` }}></div>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between font-label text-label text-on-surface-variant">
+                      <span>Symptom load</span>
+                      <span className="font-vital-sm text-vital-sm">{sympPct}/100</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden">
+                      <div className="h-full bg-primary-container rounded-full" style={{ width: `${sympPct}%` }}></div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </section>
           </FadeIn>

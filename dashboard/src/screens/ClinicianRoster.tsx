@@ -151,12 +151,12 @@ export default function ClinicianRoster() {
             </div>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div className="flex flex-wrap gap-2">
-              <button className="px-3 py-1 bg-stone-200 text-stone-800 rounded-full text-xs font-medium hover:bg-stone-300 transition-colors">All</button>
-              <button className="px-3 py-1 bg-white border border-stone-200 text-stone-600 rounded-full text-xs font-medium hover:bg-stone-50 transition-colors">Critical</button>
-              <button className="px-3 py-1 bg-white border border-stone-200 text-stone-600 rounded-full text-xs font-medium hover:bg-stone-50 transition-colors">Elevated</button>
-              <button className="px-3 py-1 bg-white border border-stone-200 text-stone-600 rounded-full text-xs font-medium hover:bg-stone-50 transition-colors">Watch</button>
-              <button className="px-3 py-1 bg-white border border-stone-200 text-stone-600 rounded-full text-xs font-medium hover:bg-stone-50 transition-colors">Stable</button>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Roster filters">
+              <span aria-current="page" className="px-3 py-1 bg-stone-200 text-stone-800 rounded-full text-xs font-medium">All · 6</span>
+              <span aria-disabled="true" className="px-3 py-1 bg-white border border-stone-200 text-stone-300 rounded-full text-xs font-medium opacity-60 cursor-default">Critical</span>
+              <span aria-disabled="true" className="px-3 py-1 bg-white border border-stone-200 text-stone-300 rounded-full text-xs font-medium opacity-60 cursor-default">Elevated</span>
+              <span aria-disabled="true" className="px-3 py-1 bg-white border border-stone-200 text-stone-300 rounded-full text-xs font-medium opacity-60 cursor-default">Watch</span>
+              <span aria-disabled="true" className="px-3 py-1 bg-white border border-stone-200 text-stone-300 rounded-full text-xs font-medium opacity-60 cursor-default">Stable</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-stone-500">
               <span className="hidden md:inline-flex items-center gap-2">
