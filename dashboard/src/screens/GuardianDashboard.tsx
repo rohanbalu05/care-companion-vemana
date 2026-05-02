@@ -1,9 +1,13 @@
+import { useState } from "react";
 import { FadeIn } from "../components/FadeIn";
 import { useDashboard } from "../lib/dashboardData";
 import { DashboardLoading, DashboardError } from "../components/DashboardStateGate";
 
+type GuardianTab = 'home' | 'health' | 'awards' | 'profile';
+
 export default function GuardianDashboard() {
   const { data, loading, error, refresh } = useDashboard();
+  const [activeTab, setActiveTab] = useState<GuardianTab>('home');
   if (loading && !data) return <DashboardLoading label="Loading family view…" />;
   if (error && !data) return <DashboardError error={error} onRetry={refresh} kind="guardian" />;
   const patient = data?.patient;
@@ -44,11 +48,25 @@ export default function GuardianDashboard() {
       <header className="bg-white dark:bg-stone-900 docked full-width top-0 sticky border-b border-stone-200 dark:border-stone-800 z-50">
         <div className="flex justify-between items-center w-full h-16 px-4 max-w-md mx-auto md:max-w-7xl">
           <div className="text-lg font-bold tracking-tight text-teal-700 dark:text-teal-400">Care Companion</div>
-          <nav className="hidden md:flex items-center gap-6" aria-label="Top tabs">
-            <span aria-disabled="true" className="text-stone-300 dark:text-stone-600 font-label text-label px-3 py-2 rounded-lg opacity-60 cursor-default">Home</span>
-            <span aria-current="page" className="text-teal-700 dark:text-teal-400 font-semibold font-label text-label bg-stone-50 dark:bg-stone-800 px-3 py-2 rounded-lg">Health</span>
-            <span aria-disabled="true" className="text-stone-300 dark:text-stone-600 font-label text-label px-3 py-2 rounded-lg opacity-60 cursor-default">Awards</span>
-            <span aria-disabled="true" className="text-stone-300 dark:text-stone-600 font-label text-label px-3 py-2 rounded-lg opacity-60 cursor-default">Profile</span>
+          <nav className="hidden md:flex items-center gap-2" aria-label="Top tabs">
+            {(['home','health','awards','profile'] as const).map(tab => {
+              const labels: Record<GuardianTab, string> = { home: 'Home', health: 'Health', awards: 'Awards', profile: 'Profile' };
+              const active = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`font-label text-label px-3 py-2 rounded-lg transition-colors ${
+                    active
+                      ? 'text-teal-700 dark:text-teal-400 font-semibold bg-stone-50 dark:bg-stone-800'
+                      : 'text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800'
+                  }`}
+                >
+                  {labels[tab]}
+                </button>
+              );
+            })}
           </nav>
           <div className="flex items-center gap-4">
             <button className="text-teal-700 dark:text-teal-400 font-label text-label hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors p-2 rounded-full">English</button>
@@ -65,6 +83,7 @@ export default function GuardianDashboard() {
         </div>
       </header>
       <main className="max-w-5xl mx-auto px-4 md:px-container_margin py-8 mb-24 md:mb-8 grid grid-cols-1 lg:grid-cols-12 gap-gap">
+        {activeTab === 'home' && (<>
         <div className="lg:col-span-8 flex flex-col gap-gap">
           <FadeIn delay={0}>
           <div className="bg-surface-container-low border border-surface-variant rounded-xl p-4 mb-gap flex flex-col gap-3">
@@ -276,27 +295,156 @@ export default function GuardianDashboard() {
           </section>
           </FadeIn>
         </div>
+        </>)}
+
+        {activeTab === 'health' && (
+          <div className="lg:col-span-12">
+            <FadeIn delay={0}>
+              <section className="bg-surface-container-lowest border border-surface-variant rounded-xl p-card_padding flex flex-col gap-4">
+                <h2 className="font-h2 text-h2 text-on-surface">{ashaFirst}'s health, in detail</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <ReadingTile label="Blood pressure" value={bp ? `${bp.systolic}/${bp.diastolic}` : '—'} unit="mmHg" sub={bp?.relative || 'no reading yet'} warn={Boolean(bp?.out_of_range)} />
+                  <ReadingTile label={data?.vitals.latest_glucose_any ? `Blood sugar · ${data.vitals.latest_glucose_any.kind === 'fasting' ? 'fasting' : data.vitals.latest_glucose_any.kind === 'post_meal' ? 'post-meal' : 'random'}` : 'Blood sugar'} value={data?.vitals.latest_glucose_any ? String(data.vitals.latest_glucose_any.value) : '—'} unit="mg/dL" sub={data?.vitals.latest_glucose_any?.relative || 'no reading yet'} warn={Boolean(data?.vitals.latest_glucose_any?.out_of_range)} />
+                  <ReadingTile label="7-day adherence" value={adh7?.pct != null ? `${adh7.pct}%` : '—'} unit="" sub={adh7?.pct != null ? `${adh7.taken}/${adh7.total} doses` : 'no doses logged'} warn={(adh7?.pct ?? 100) < 80} />
+                </div>
+                <div className="border-t border-outline-variant/60 pt-4">
+                  <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider mb-3">Medications · 30-day adherence</h3>
+                  {medsAdherence.length === 0 ? (
+                    <p className="font-body-sm text-body-sm text-on-surface-variant">No active prescriptions yet.</p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {medsAdherence.map(m => (
+                        <div key={m.drug_name} className="bg-surface p-3 rounded-md border border-surface-variant flex items-center justify-between">
+                          <div>
+                            <div className="font-body text-body text-on-surface font-semibold">{m.drug_name}</div>
+                            <div className="font-label text-[11px] text-on-surface-variant mt-0.5">{m.purpose || (m.dose ? m.dose : 'Prescribed')}{m.frequency ? ` · ${m.frequency}` : ''}</div>
+                          </div>
+                          <span className={`font-vital-lg text-vital-lg ${m.adherence_pct_30d != null && m.adherence_pct_30d < 80 ? 'text-error' : 'text-on-surface'}`}>{m.adherence_pct_30d != null ? `${m.adherence_pct_30d}%` : '—'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            </FadeIn>
+          </div>
+        )}
+
+        {activeTab === 'awards' && (
+          <div className="lg:col-span-12">
+            <FadeIn delay={0}>
+              <section className="flex flex-col gap-4">
+                <div className="bg-primary-container/10 border border-primary-container/20 rounded-xl p-5 flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary-container text-on-primary-container p-2.5 rounded-lg shrink-0">
+                      <span className="material-symbols-outlined">redeem</span>
+                    </div>
+                    <h2 className="font-h2 text-h2 text-on-surface">{ashaFirst}'s subscription voucher</h2>
+                  </div>
+                  <p className="font-body-sm text-body-sm text-on-surface">
+                    When {ashaFirst}'s wellness score holds at <span className="font-vital-sm text-vital-sm text-primary-container">{data?.wellness.voucher_target ?? 90}</span> for 14 consecutive days, next month's clinic subscription is waived.
+                  </p>
+                  <div className="flex justify-between items-end mt-1">
+                    <div>
+                      <span className="font-vital-lg text-vital-lg text-primary-container">{data?.wellness.score ?? '—'}</span>
+                      <span className="font-label text-label text-on-surface-variant"> / {data?.wellness.voucher_target ?? 90}</span>
+                    </div>
+                    <p className="font-label text-label text-primary-container">{data?.wellness.score != null ? `${Math.max(0, (data?.wellness.voucher_target ?? 90) - data.wellness.score)} points to go` : 'Logging starts the score'}</p>
+                  </div>
+                  <div className="w-full h-1.5 bg-primary-container/20 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary-container rounded-full" style={{ width: `${Math.min(100, Math.round(((data?.wellness.score ?? 0) / (data?.wellness.voucher_target ?? 90)) * 100))}%` }}></div>
+                  </div>
+                </div>
+                <div className="bg-surface-container-lowest rounded-xl p-4 border border-surface-variant shadow-sm flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-[28px] text-primary">eco</span>
+                    <div>
+                      <div className="font-body text-body text-on-surface font-semibold">{(data?.check_in.streak ?? 0) === 0 ? `${ashaFirst} hasn't started a streak yet` : `${data?.check_in.streak}-day check-in streak`}</div>
+                      <div className="font-label text-[11px] text-on-surface-variant mt-0.5">Counts every day {ashaFirst} logs on Telegram</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </FadeIn>
+          </div>
+        )}
+
+        {activeTab === 'profile' && (
+          <div className="lg:col-span-12">
+            <FadeIn delay={0}>
+              <section className="flex flex-col gap-3">
+                <div className="bg-surface-container-lowest rounded-xl p-5 border border-surface-variant shadow-sm flex flex-col gap-2">
+                  <h2 className="font-h2 text-h2 text-on-surface">{patient?.full_name || ashaFirst}</h2>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant">
+                    {patient?.age != null ? `${patient.age} years old` : 'Age not recorded'}{patient?.sex ? ` · ${patient.sex}` : ''}
+                  </p>
+                  {patient?.diagnoses && patient.diagnoses.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {patient.diagnoses.map(d => (
+                        <span key={d.condition} className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary-container/15 text-primary-container border border-primary-container/30">{d.short}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <ProfileTile icon="person" label="Care team" value={patient?.clinician_name || 'Dr. Priya Mehta'} sub={patient?.clinic_name || ''} />
+                <ProfileTile icon="language" label={`${ashaFirst}'s preferred language`} value={patient?.preferred_language_label || 'English'} sub="The bot replies in this language" />
+                <ProfileTile icon="supervisor_account" label="Your role" value={guardian?.relationship ? guardian.relationship.charAt(0).toUpperCase() + guardian.relationship.slice(1) : 'Family'} sub={guardian?.name || ''} />
+                <ProfileTile icon="schedule" label="Last contact" value={patient?.last_contact?.label || '—'} sub="" />
+              </section>
+            </FadeIn>
+          </div>
+        )}
       </main>
       <nav className="md:hidden bg-white/90 dark:bg-stone-900/90 backdrop-blur-md fixed bottom-0 w-full max-w-md left-1/2 -translate-x-1/2 border-t border-stone-200 dark:border-stone-800 shadow-[0_-2px_10px_rgba(0,0,0,0.02)] z-50" aria-label="Bottom tabs">
         <div className="flex justify-around items-center h-16 w-full px-2 pb-safe">
-          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 w-16 opacity-60 cursor-default">
-            <span className="material-symbols-outlined mb-1" data-icon="home">home</span>
-            <span className="font-sans text-[11px] font-medium">Home</span>
-          </span>
-          <span aria-current="page" className="flex flex-col items-center justify-center text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 rounded-xl px-3 py-1 w-16">
-            <span className="material-symbols-outlined mb-1" data-icon="vital_signs" data-weight="fill">vital_signs</span>
-            <span className="font-sans text-[11px] font-medium text-teal-700 dark:text-teal-400">Health</span>
-          </span>
-          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 w-16 opacity-60 cursor-default">
-            <span className="material-symbols-outlined mb-1" data-icon="emoji_events">emoji_events</span>
-            <span className="font-sans text-[11px] font-medium">Awards</span>
-          </span>
-          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 w-16 opacity-60 cursor-default">
-            <span className="material-symbols-outlined mb-1" data-icon="person">person</span>
-            <span className="font-sans text-[11px] font-medium">Profile</span>
-          </span>
+          {(['home','health','awards','profile'] as const).map(tab => {
+            const icons: Record<GuardianTab, string> = { home: 'home', health: 'vital_signs', awards: 'emoji_events', profile: 'person' };
+            const labels: Record<GuardianTab, string> = { home: 'Home', health: 'Health', awards: 'Awards', profile: 'Profile' };
+            const active = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                aria-current={active ? 'page' : undefined}
+                className={`flex flex-col items-center justify-center w-16 rounded-xl px-3 py-1 transition-colors ${
+                  active
+                    ? 'text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20'
+                    : 'text-stone-400 dark:text-stone-500 hover:text-stone-600'
+                }`}
+              >
+                <span className="material-symbols-outlined mb-1" data-weight={active ? 'fill' : undefined}>{icons[tab]}</span>
+                <span className="font-sans text-[11px] font-medium">{labels[tab]}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
+    </div>
+  );
+}
+
+function ReadingTile({ label, value, unit, sub, warn }: { label: string; value: string; unit: string; sub: string; warn: boolean }) {
+  return (
+    <div className={`rounded-lg p-3 border ${warn ? 'bg-error-container/40 border-error-container' : 'bg-surface-container-low/60 border-outline-variant/60'}`}>
+      <div className="font-label text-[11px] uppercase tracking-wider text-on-surface-variant">{label}</div>
+      <div className="mt-1 flex items-baseline gap-1">
+        <span className={`font-vital-lg text-vital-lg ${warn ? 'text-error' : 'text-on-surface'}`}>{value}</span>
+        {unit && <span className="text-sm font-body text-outline">{unit}</span>}
+      </div>
+      <div className="font-label text-[11px] text-outline mt-1">{sub}</div>
+    </div>
+  );
+}
+
+function ProfileTile({ icon, label, value, sub }: { icon: string; label: string; value: string; sub: string }) {
+  return (
+    <div className="bg-surface-container-lowest rounded-lg p-3 border border-outline-variant/60 flex items-start gap-3">
+      <span className="material-symbols-outlined text-on-surface-variant mt-0.5 text-[20px]">{icon}</span>
+      <div className="flex-1 min-w-0">
+        <div className="font-label text-[11px] uppercase tracking-wider text-on-surface-variant">{label}</div>
+        <div className="font-body text-body text-on-surface mt-0.5 truncate">{value}</div>
+        {sub && <div className="font-label text-[11px] text-outline mt-0.5">{sub}</div>}
+      </div>
     </div>
   );
 }
