@@ -1,10 +1,21 @@
 import { Link } from "react-router-dom";
-import { Stethoscope, HeartPulse, UsersRound, ArrowRight, Play, ArrowDown, ExternalLink } from "lucide-react";
+import { motion } from "framer-motion";
+import { Stethoscope, HeartPulse, Users, ArrowRight, ArrowDown, ExternalLink } from "lucide-react";
+
+const DEMO_PATIENT_TOKEN = (import.meta.env.VITE_DEMO_PATIENT_TOKEN as string | undefined) || "demo-asha-2026";
+const DEMO_GUARDIAN_TOKEN = (import.meta.env.VITE_DEMO_GUARDIAN_TOKEN as string | undefined) || "demo-rohan-2026";
+
+function scrollToRoles(e: React.MouseEvent) {
+  e.preventDefault();
+  const el = document.getElementById("roles");
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-on-background font-body antialiased">
       <style>{`
+        html { scroll-behavior: smooth; }
         .dotted-grid {
           background-image: radial-gradient(circle, rgba(15,118,110,0.12) 1px, transparent 1px);
           background-size: 24px 24px;
@@ -32,60 +43,83 @@ export default function LandingPage() {
 
         <div className="relative z-10 flex-1 flex items-center justify-center px-6 md:px-10 pb-20">
           <div className="max-w-3xl text-center">
-            <h1 className="text-4xl md:text-6xl font-semibold tracking-tight text-on-surface leading-[1.05]">
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="text-4xl md:text-6xl font-semibold tracking-tight text-on-surface leading-[1.05]"
+            >
               Chronic care that actually checks in.
-            </h1>
+            </motion.h1>
             <div className="mt-8 space-y-2 text-base md:text-lg text-on-surface-variant">
-              <p>Your patients. Their daily reality. Our quiet attention.</p>
-              <p className="hindi">आपके मरीज़। उनकी रोज़मर्रा। हमारी शांत निगरानी।</p>
-              <p className="kannada">ನಿಮ್ಮ ರೋಗಿಗಳು. ಅವರ ದೈನಂದಿನ. ನಮ್ಮ ಶಾಂತ ಗಮನ.</p>
+              {[
+                { text: "Your patients. Their daily reality. Our quiet attention.", className: "" },
+                { text: "आपके मरीज़। उनकी रोज़मर्रा। हमारी शांत निगरानी।", className: "hindi" },
+                { text: "ನಿಮ್ಮ ರೋಗಿಗಳು. ಅವರ ದೈನಂದಿನ. ನಮ್ಮ ಶಾಂತ ಗಮನ.", className: "kannada" }
+              ].map((line, i) => (
+                <motion.p
+                  key={i}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 + i * 0.15, ease: "easeOut" }}
+                  className={line.className}
+                >
+                  {line.text}
+                </motion.p>
+              ))}
             </div>
-            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <a
-                href="#demo"
+            <div className="mt-10 flex items-center justify-center">
+              <motion.a
+                href="#roles"
+                onClick={scrollToRoles}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.85, ease: "easeOut" }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-md bg-primary-container text-on-primary font-medium text-sm shadow-[0_2px_4px_rgba(15,118,110,0.15)] hover:bg-primary transition-colors"
               >
-                <Play size={16} className="fill-current" /> Watch the 90-second demo
-              </a>
-              <a href="#roles" className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant hover:text-on-surface">
-                Or pick your role <ArrowDown size={14} />
-              </a>
+                Pick your role <ArrowDown size={16} />
+              </motion.a>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="roles" className="relative px-6 md:px-10 py-20 bg-surface-container-low/40 border-y border-outline-variant/40">
+      <section id="roles" className="relative px-6 md:px-10 py-20 bg-surface-container-low/40 border-y border-outline-variant/40 scroll-mt-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-on-surface">Pick your role</h2>
             <p className="mt-2 text-sm text-on-surface-variant">Three doors into the same care loop.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="flex flex-wrap justify-center gap-6">
             <RoleCard
+              index={0}
               icon={<Stethoscope size={22} />}
               title="Clinician"
-              body="Manage your patient roster, review AI-detected risk events, approve interventions in one tap."
+              body="Manage your roster, review AI-detected risk events, approve interventions in one tap."
               cta="Open clinical dashboard"
               href="/login"
               hint="Demo: sign in as Dr. Priya Mehta"
               accent="bg-primary-container/10 text-primary-container"
             />
             <RoleCard
+              index={1}
               icon={<HeartPulse size={22} />}
               title="Patient"
-              body="Care Companion sends you a friendly daily check-in via Telegram in your language. Your dashboard shows your wellness journey."
-              cta="Open my dashboard"
-              href="/patient?token=demo-asha-2026"
+              body="Care Companion checks in with you on Telegram, in your language. Your dashboard shows your wellness journey."
+              cta="Use demo patient view"
+              href={`/patient?token=${DEMO_PATIENT_TOKEN}`}
               hint="Demo: opens Mrs. Asha Sharma's view"
               accent="bg-tertiary-fixed/40 text-tertiary"
             />
             <RoleCard
-              icon={<UsersRound size={22} />}
-              title="Family member"
-              body="Get peace-of-mind updates about your loved one. Know when to call, when to relax."
-              cta="Open guardian view"
-              href="/guardian?token=demo-rohan-2026"
+              index={2}
+              icon={<Users size={22} />}
+              title="Guardian"
+              body="Quiet peace-of-mind. See how your loved one is doing without intruding on their day."
+              cta="Use demo guardian view"
+              href={`/guardian?token=${DEMO_GUARDIAN_TOKEN}`}
               hint="Demo: opens Rohan Sharma's view"
               accent="bg-secondary-container/60 text-on-secondary-container"
             />
@@ -109,27 +143,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="demo" className="px-6 md:px-10 py-20 bg-surface-container-low/40 border-t border-outline-variant/40">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-on-surface">See it in action</h2>
-          <p className="mt-2 text-sm text-on-surface-variant">A 90-second walkthrough of Mrs. Asha Sharma's 14-day decline and the clinician's one-tap response.</p>
-          <div className="mt-10 mx-auto w-full max-w-[800px] aspect-video rounded-xl border border-outline-variant bg-surface-container-lowest flex items-center justify-center shadow-[0_2px_4px_rgba(28,25,23,0.04)]">
-            <div className="flex flex-col items-center gap-3 text-on-surface-variant">
-              <div className="w-16 h-16 rounded-full bg-primary-container/15 flex items-center justify-center">
-                <Play size={28} className="text-primary-container fill-current" />
-              </div>
-              <p className="text-sm font-medium">Demo video placeholder</p>
-              <p className="text-[12px] text-outline">Final cut going up before judging</p>
-            </div>
-          </div>
-          <ul className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-on-surface-variant">
-            <li className="flex items-start gap-2 text-left"><span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary-container shrink-0" /> Photo prescription → meds extracted in 5 seconds</li>
-            <li className="flex items-start gap-2 text-left"><span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary-container shrink-0" /> Voice note in Hindi → vital logged + multilingual reply</li>
-            <li className="flex items-start gap-2 text-left"><span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary-container shrink-0" /> Multi-factor risk fires → clinician approves → patient gets a message</li>
-          </ul>
-        </div>
-      </section>
-
       <footer className="px-6 md:px-10 py-10 border-t border-outline-variant/60 text-sm text-on-surface-variant">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <span>Built for the Anthropic Hackathon · Bangalore · 2026</span>
@@ -144,11 +157,18 @@ export default function LandingPage() {
   );
 }
 
-function RoleCard({ icon, title, body, cta, href, hint, accent }: {
-  icon: React.ReactNode; title: string; body: string; cta: string; href: string; hint: string; accent: string;
+function RoleCard({ index, icon, title, body, cta, href, hint, accent }: {
+  index: number; icon: React.ReactNode; title: string; body: string; cta: string; href: string; hint: string; accent: string;
 }) {
   return (
-    <article className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col gap-4 shadow-[0_1px_2px_rgba(28,25,23,0.02)] hover:shadow-[0_4px_12px_rgba(28,25,23,0.06)] transition-shadow">
+    <motion.article
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.45, delay: index * 0.1, ease: "easeOut" }}
+      whileHover={{ y: -4, transition: { type: "spring", stiffness: 300, damping: 22 } }}
+      className="bg-surface-container-lowest border border-[#E7E5E4] rounded-xl p-6 flex flex-col gap-4 shadow-[0_1px_2px_rgba(28,25,23,0.02)] hover:shadow-[0_4px_12px_rgba(28,25,23,0.06)] transition-shadow w-full md:w-80"
+    >
       <div className={`w-10 h-10 rounded-md flex items-center justify-center ${accent}`}>{icon}</div>
       <div>
         <h3 className="text-lg font-semibold tracking-tight text-on-surface">{title}</h3>
@@ -163,7 +183,7 @@ function RoleCard({ icon, title, body, cta, href, hint, accent }: {
         </Link>
         <span className="text-[11px] text-outline pl-1">{hint}</span>
       </div>
-    </article>
+    </motion.article>
   );
 }
 
