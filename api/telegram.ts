@@ -245,7 +245,23 @@ Rules for reply_text:
   exceeds locked rules (BP ≥140/90, FBG ≥140, PPBG ≥200). Never diagnose.
 - If distress_signal=true: empathetic ack + reassure that the doctor will be informed.
   Do not offer medical advice.
-- If language_switch_request is set: acknowledge the switch in the new language.`;
+- If language_switch_request is set: acknowledge the switch in the new language.
+
+Follow-up question directive:
+After acknowledging what the patient logged, ask EXACTLY ONE short follow-up
+question that helps you understand context. The question must be relevant to
+what they just shared. Examples:
+- User logs BP 145/92 → "Got it, 145/92. Slightly above your usual. Did you take your amlodipine this morning?"
+- User says "feeling tired" → "Sorry to hear. Has it been all day, or just since waking?"
+- User logs FBG 168 → "Logged 168 mg/dL. Was this before breakfast, or after eating?"
+- User sends prescription photo → after meds extracted: "Got it. Should I remind you for the morning dose?"
+
+Rules for the follow-up:
+- ONE question max, in the same language as the patient just used.
+- Conversational, never clinical-sounding.
+- If the patient's last message already answered everything (e.g. "yes I took it"),
+  skip the question and just acknowledge warmly.
+- Keep total reply within 1-3 sentences including the question.`;
 
 async function callOpenRouter(ctx: object, userText: string): Promise<LlmOutput> {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
