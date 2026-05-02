@@ -331,10 +331,10 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
             transition={{ duration: 0.5, delay: 1.8, ease: "easeOut" }}
           >
             <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider mb-3">Pattern narrative</h3>
-            {latest.narrative_text ? (
+            {latest.narrative_text && latest.narrative_text.trim().length > 0 ? (
               <p className="font-body text-body text-on-surface leading-relaxed max-w-prose whitespace-pre-wrap">{latest.narrative_text}</p>
             ) : (
-              <p className="font-body-sm text-body-sm text-on-surface-variant italic">Composing narrative for the latest event…</p>
+              <p className="font-body-sm text-body-sm text-on-surface-variant italic">No narrative attached. Rule output is in the reasoning trace.</p>
             )}
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-3">
               Most recent event: <span className="font-mono text-[12px] bg-error-container/40 text-on-error-container px-1.5 py-0.5 rounded">{latest.event_type.replace(/_/g, ' ')}</span> · {latest.relative}

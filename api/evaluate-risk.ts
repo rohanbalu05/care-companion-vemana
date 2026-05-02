@@ -546,10 +546,26 @@ async function isIdempotentSkip(patientId: string, candidate: Candidate): Promis
   return (count || 0) > 0;
 }
 
+function buildFallbackNarrative(profile: PatientProfile, candidate: Candidate): string {
+  const first = profile.patient.first_name || 'The patient';
+  const dxList = profile.active_diagnoses.map(d => d.display_name).join(', ') || 'their chronic conditions';
+  const rules = candidate.rules_fired.join('; ') || candidate.event_type;
+  const points = candidate.data_points.slice(0, 3).map(dp => dp.summary).filter(Boolean).join(' ');
+  const comorbid = profile.comorbidity_count >= 2
+    ? ` Given ${first}'s combined burden of ${dxList}, this pattern carries amplified cardiovascular and metabolic risk.`
+    : '';
+  const evtLabel = candidate.event_type.replace(/_/g, ' ');
+  const sevLabel = candidate.final_severity === 'critical' ? 'critical' : candidate.final_severity === 'elevated' ? 'elevated' : 'a watch-level';
+  const trigger = points ? ` Triggering data: ${points}.` : '';
+  return `${first} has crossed a ${sevLabel} threshold for ${evtLabel}.${trigger} Rule(s) fired: ${rules}.${comorbid} A clinician should review the attached data points and decide whether to escalate or send a routine check-in.`;
+}
+
 async function insertRiskEventAndIntervention(profile: PatientProfile, candidate: Candidate, llm: LlmOutput | null) {
   const dbSeverity = SEVERITY_MAP[candidate.final_severity];
   const citation = llm?.citation || getCitationFor(candidate.primary_disease_id);
-  const narrative = llm?.narrative || null;
+  const narrative = (llm?.narrative && llm.narrative.trim().length > 0)
+    ? llm.narrative
+    : buildFallbackNarrative(profile, candidate);
 
   const dataPointRefs = {
     data_points: candidate.data_points,
