@@ -49,6 +49,24 @@ export type DashboardData = {
   };
   adherence_7d: { taken: number; missed: number; total: number; pct: number | null; last_14_status: string[] };
   active_medications: Array<{ drug_name: string; dose: string | null; frequency: string | null; instructions: string | null; prescribed_on: string | null }>;
+  medications_adherence: Array<{
+    drug_name: string;
+    dose: string | null;
+    frequency: string | null;
+    purpose: string | null;
+    adherence_pct_30d: number | null;
+    doses_resolved_30d: number;
+  }>;
+  recent_events: Array<{
+    kind: 'vital_bp' | 'vital_glucose' | 'adherence_taken' | 'adherence_missed' | 'symptom' | 'intervention_sent' | 'risk_event';
+    label: string;
+    detail?: string | null;
+    severity?: 'info' | 'warn' | 'alert';
+    language?: string | null;
+    recorded_at: string;
+    relative: string;
+  }>;
+  check_in: { last_7_days: Array<{ date: string; logged: boolean }>; streak: number };
   interventions: Array<{
     id: string;
     recommendation_text: string;

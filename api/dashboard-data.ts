@@ -89,7 +89,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
 
-    const [pRes, dxRes, medsRes, vitalsRes, wellnessRes, riskRes, adhRes, intRes, gRes] = await Promise.all([
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    const [pRes, dxRes, medsRes, vitalsRes, wellnessRes, riskRes, adhRes, adh30Res, intRes, gRes, sympRes] = await Promise.all([
       supabase.from('patients')
         .select('id, full_name, dob, sex, phone, preferred_language, last_detected_language, telegram_chat_id, telegram_linked_at, clinic_id, enrolled_by_clinician_id, address, city')
         .eq('id', patientId).single(),
@@ -97,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select('condition, diagnosed_on, icd10_code')
         .eq('patient_id', patientId).order('diagnosed_on', { ascending: true }),
       supabase.from('medications')
-        .select('drug_name, dose_amount, dose_unit, frequency, instructions, status, prescribed_on')
+        .select('id, drug_name, dose_amount, dose_unit, frequency, instructions, status, prescribed_on')
         .eq('patient_id', patientId).eq('status', 'active'),
       supabase.from('vitals')
         .select('vital_type, value_systolic, value_diastolic, value_numeric, unit, recorded_at')
@@ -112,12 +113,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       supabase.from('adherence_events')
         .select('status, scheduled_at, taken_at, medication_id')
         .eq('patient_id', patientId).gte('scheduled_at', sevenDaysAgo).order('scheduled_at', { ascending: false }),
+      supabase.from('adherence_events')
+        .select('status, scheduled_at, medication_id')
+        .eq('patient_id', patientId).gte('scheduled_at', thirtyDaysAgo).order('scheduled_at', { ascending: false }),
       supabase.from('interventions')
         .select('id, recommendation_text, citation, clinical_reasoning, status, sent_message_text, sent_at, approved_at, created_at')
         .eq('patient_id', patientId).order('created_at', { ascending: false }).limit(15),
       supabase.from('guardians')
         .select('full_name, phone, relationship, address')
-        .eq('patient_id', patientId).limit(1)
+        .eq('patient_id', patientId).limit(1),
+      supabase.from('symptoms')
+        .select('id, symptom_text_normalized, symptom_text_raw, severity, recorded_at, language_detected')
+        .eq('patient_id', patientId).gte('recorded_at', fourteenDaysAgo)
+        .order('recorded_at', { ascending: false }).limit(20)
     ]);
 
     if (pRes.error || !pRes.data) {
@@ -201,6 +209,128 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       approved_at: i.approved_at,
       created_at: i.created_at
     }));
+
+    const medsList = (medsRes.data || []) as any[];
+    const adh30Rows = (adh30Res.data || []) as any[];
+    const adhByMed: Record<string, { taken: number; resolved: number }> = {};
+    for (const r of adh30Rows) {
+      const k = r.medication_id || 'unknown';
+      const slot = (adhByMed[k] ||= { taken: 0, resolved: 0 });
+      if (r.status === 'taken' || r.status === 'late') { slot.taken++; slot.resolved++; }
+      else if (r.status === 'missed') { slot.resolved++; }
+    }
+    const medications_adherence = medsList.map(m => {
+      const slot = adhByMed[m.id] || { taken: 0, resolved: 0 };
+      const pct = slot.resolved > 0 ? Math.round((slot.taken / slot.resolved) * 100) : null;
+      const purpose = (() => {
+        const drug = (m.drug_name || '').toLowerCase();
+        if (/amlodipine|losartan|enalapril|telmisartan|atenolol|metoprolol|ramipril/.test(drug)) return 'Blood pressure';
+        if (/metformin|glimepiride|sitagliptin|insulin|gliclazide|glibenclamide|empagliflozin/.test(drug)) return 'Diabetes';
+        if (/atorvastatin|rosuvastatin|simvastatin/.test(drug)) return 'Cholesterol';
+        if (/aspirin|clopidogrel/.test(drug)) return 'Anti-platelet';
+        return null;
+      })();
+      return {
+        drug_name: m.drug_name,
+        dose: m.dose_amount && m.dose_unit ? `${m.dose_amount}${m.dose_unit}` : null,
+        frequency: m.frequency,
+        purpose,
+        adherence_pct_30d: pct,
+        doses_resolved_30d: slot.resolved
+      };
+    });
+
+    const symptomsRows = (sympRes.data || []) as any[];
+    const recentEvents: Array<{
+      kind: 'vital_bp' | 'vital_glucose' | 'adherence_taken' | 'adherence_missed' | 'symptom' | 'intervention_sent' | 'risk_event';
+      label: string;
+      detail?: string | null;
+      severity?: 'info' | 'warn' | 'alert';
+      language?: string | null;
+      recorded_at: string;
+    }> = [];
+
+    for (const v of bpRows.slice(0, 8)) {
+      const high = Number(v.value_systolic) >= 140 || Number(v.value_diastolic) >= 90;
+      recentEvents.push({
+        kind: 'vital_bp',
+        label: `BP reading ${v.value_systolic}/${v.value_diastolic}`,
+        detail: high ? 'Above usual' : null,
+        severity: high ? 'warn' : 'info',
+        recorded_at: v.recorded_at
+      });
+    }
+    for (const v of [...fbgRows, ...ppbgRows].slice(0, 8)) {
+      const high = isFbg(v.vital_type) ? Number(v.value_numeric) >= 140 : Number(v.value_numeric) >= 200;
+      recentEvents.push({
+        kind: 'vital_glucose',
+        label: `${isFbg(v.vital_type) ? 'Fasting' : 'Post-meal'} glucose ${v.value_numeric} mg/dL`,
+        detail: high ? 'Above usual' : null,
+        severity: high ? 'warn' : 'info',
+        recorded_at: v.recorded_at
+      });
+    }
+    const medById: Record<string, any> = {};
+    for (const m of medsList) medById[m.id] = m;
+    for (const r of adhRows.slice(0, 12)) {
+      if (r.status === 'missed') {
+        const drug = medById[r.medication_id]?.drug_name || 'Medication';
+        recentEvents.push({
+          kind: 'adherence_missed',
+          label: `Skipped ${drug}`,
+          severity: 'alert',
+          recorded_at: r.scheduled_at
+        });
+      }
+    }
+    for (const s of symptomsRows.slice(0, 6)) {
+      recentEvents.push({
+        kind: 'symptom',
+        label: `Said "${s.symptom_text_normalized || s.symptom_text_raw}"`,
+        detail: s.severity ? `Severity ${s.severity}` : null,
+        severity: s.severity === 'severe' ? 'alert' : s.severity === 'moderate' ? 'warn' : 'info',
+        language: s.language_detected || null,
+        recorded_at: s.recorded_at
+      });
+    }
+    for (const i of (intRes.data || []) as any[]) {
+      if (i.status === 'sent' && i.sent_at) {
+        recentEvents.push({
+          kind: 'intervention_sent',
+          label: 'Telegram message from clinic',
+          detail: (i.sent_message_text || i.recommendation_text || '').slice(0, 80),
+          severity: 'info',
+          recorded_at: i.sent_at
+        });
+      }
+    }
+    recentEvents.sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+    const recent_events = recentEvents.slice(0, 12).map(e => ({
+      ...e,
+      relative: relativeLabel(e.recorded_at)
+    }));
+
+    const checkInDays: { date: string; logged: boolean }[] = [];
+    const dayKeysWithLog = new Set<string>();
+    for (const v of bpRows) dayKeysWithLog.add(v.recorded_at.slice(0, 10));
+    for (const v of fbgRows) dayKeysWithLog.add(v.recorded_at.slice(0, 10));
+    for (const v of ppbgRows) dayKeysWithLog.add(v.recorded_at.slice(0, 10));
+    for (const s of symptomsRows) dayKeysWithLog.add(s.recorded_at.slice(0, 10));
+    for (const r of adhRows) {
+      if (r.taken_at) dayKeysWithLog.add(r.taken_at.slice(0, 10));
+    }
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      checkInDays.push({ date: key, logged: dayKeysWithLog.has(key) });
+    }
+
+    let streak = 0;
+    for (let i = checkInDays.length - 1; i >= 0; i--) {
+      if (checkInDays[i].logged) streak++;
+      else break;
+    }
 
     res.status(200).json({
       patient: {
@@ -288,13 +418,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         pct: adhPct,
         last_14_status: last14Adherence
       },
-      active_medications: (medsRes.data || []).map((m: any) => ({
+      active_medications: medsList.map((m: any) => ({
         drug_name: m.drug_name,
         dose: m.dose_amount && m.dose_unit ? `${m.dose_amount}${m.dose_unit}` : null,
         frequency: m.frequency,
         instructions: m.instructions,
         prescribed_on: m.prescribed_on
       })),
+      medications_adherence,
+      recent_events: recent_events,
+      check_in: { last_7_days: checkInDays, streak },
       interventions,
       _meta: {
         generated_at: new Date().toISOString(),

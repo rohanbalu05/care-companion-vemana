@@ -8,6 +8,22 @@ function pct100(v: number | undefined | null, max: number): number {
   return Math.max(0, Math.min(100, Math.round((v / max) * 100)));
 }
 
+function miniPath(values: number[], height: number): string | null {
+  if (!values || values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = Math.max(1, max - min);
+  const w = 100, pad = 2;
+  const stepX = (w - pad * 2) / (values.length - 1);
+  return values
+    .map((v, i) => {
+      const x = pad + i * stepX;
+      const y = pad + ((max - v) / range) * (height - pad * 2);
+      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
 export default function PatientDashboard() {
   const { data, loading, error, refresh } = useDashboard();
   if (loading && !data) return <DashboardLoading label="Loading your dashboard…" />;
@@ -27,6 +43,14 @@ export default function PatientDashboard() {
   const fbg = data?.vitals.latest_fbg;
   const adh7 = data?.adherence_7d;
   const last14 = data?.adherence_7d.last_14_status || [];
+  const last14Bp = data?.vitals.last_14_bp || [];
+  const last14Glu = data?.vitals.last_14_glucose || [];
+  const checkInDays = data?.check_in.last_7_days || [];
+  const streak = data?.check_in.streak ?? 0;
+  const latestSentMessage = data?.interventions.find(i => i.status === 'sent' && i.sent_message_text) || null;
+  const bpPath = miniPath(last14Bp.map(p => p.systolic), 24);
+  const gluPath = miniPath(last14Glu.map(p => p.value), 24);
+  const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   return (
     <div className="bg-background min-h-screen flex items-center justify-center font-body text-on-background py-8">
       <style>{`
@@ -142,38 +166,43 @@ export default function PatientDashboard() {
               <div className="flex items-center justify-between h-[40px]">
                 <span className="font-body text-body text-on-surface">Blood Pressure</span>
                 <div className="w-32 h-6 relative">
-                  <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 24">
-                    <rect fill="#006a63" fillOpacity="0.05" height="12" width="100" x="0" y="6"></rect>
-                    <path d="M0,18 L10,16 L20,19 L30,14 L40,15 L50,12 L60,13 L70,10 L80,11 L90,8 L100,9" fill="none" stroke="#006a63" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
-                  </svg>
+                  {bpPath ? (
+                    <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 24">
+                      <rect fill="#006a63" fillOpacity="0.05" height="12" width="100" x="0" y="6"></rect>
+                      <path d={bpPath} fill="none" stroke="#006a63" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
+                    </svg>
+                  ) : (
+                    <span className="text-[11px] text-outline">Log a reading on Telegram</span>
+                  )}
                 </div>
               </div>
               <div className="flex items-center justify-between h-[40px]">
                 <span className="font-body text-body text-on-surface">Blood Sugar</span>
                 <div className="w-32 h-6 relative">
-                  <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 24">
-                    <rect fill="#7f4025" fillOpacity="0.05" height="8" width="100" x="0" y="8"></rect>
-                    <path d="M0,12 L10,14 L20,10 L30,11 L40,16 L50,14 L60,12 L70,13 L80,10 L90,9 L100,11" fill="none" stroke="#7f4025" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
-                  </svg>
+                  {gluPath ? (
+                    <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 24">
+                      <rect fill="#7f4025" fillOpacity="0.05" height="8" width="100" x="0" y="8"></rect>
+                      <path d={gluPath} fill="none" stroke="#7f4025" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
+                    </svg>
+                  ) : (
+                    <span className="text-[11px] text-outline">Send a glucometer photo</span>
+                  )}
                 </div>
               </div>
               <div className="flex items-center justify-between h-[40px]">
                 <span className="font-body text-body text-on-surface">Medications taken</span>
                 <div className="flex gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#D7DBD9]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#D7DBD9]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></div>
+                  {(last14.length > 0 ? last14 : Array(14).fill('pending')).slice(-14).map((status, i) => (
+                    <div
+                      key={i}
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        status === 'taken' || status === 'late' ? 'bg-[#16A34A]'
+                          : status === 'missed' ? 'bg-[#DC2626]'
+                          : 'bg-[#D7DBD9]'
+                      }`}
+                      title={`Day ${i + 1}: ${status}`}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
@@ -197,18 +226,29 @@ export default function PatientDashboard() {
           <section className="bg-surface-container-lowest border border-surface-variant rounded-xl p-4 flex justify-between items-center">
             <div>
               <div className="font-label text-label text-on-surface flex items-center gap-1">
-                11-day check-in streak <span className="material-symbols-outlined text-[16px] text-primary">eco</span>
+                {streak === 0 ? 'Start your streak today' : `${streak}-day check-in streak`} <span className="material-symbols-outlined text-[16px] text-primary">eco</span>
               </div>
-              <div className="font-label text-label text-on-surface-variant hindi mt-0.5">11-दिन का चेक-इन स्ट्रीक</div>
+              <div className="font-label text-label text-on-surface-variant hindi mt-0.5">
+                {streak === 0 ? 'आज से चेक-इन शुरू करें' : `${streak}-दिन का चेक-इन स्ट्रीक`}
+              </div>
             </div>
             <div className="flex gap-1">
-              <div className="w-6 h-6 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container"><span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>check</span></div>
-              <div className="w-6 h-6 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container"><span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>check</span></div>
-              <div className="w-6 h-6 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container"><span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>check</span></div>
-              <div className="w-6 h-6 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container"><span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>check</span></div>
-              <div className="w-6 h-6 rounded-full bg-error-container flex items-center justify-center text-on-error-container"><span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>close</span></div>
-              <div className="w-6 h-6 rounded-full bg-primary-container/20 flex items-center justify-center text-primary-container"><span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>check</span></div>
-              <div className="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container shadow-sm"><span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>check</span></div>
+              {checkInDays.map((d, i) => {
+                const isToday = i === checkInDays.length - 1;
+                return (
+                  <div
+                    key={d.date}
+                    title={`${dayLabels[new Date(d.date).getDay() === 0 ? 6 : new Date(d.date).getDay() - 1]} · ${d.logged ? 'logged' : 'no log'}`}
+                    className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                      d.logged
+                        ? (isToday ? 'bg-primary-container text-on-primary-container shadow-sm' : 'bg-primary-container/20 text-primary-container')
+                        : 'bg-error-container/40 text-on-error-container'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>{d.logged ? 'check' : 'close'}</span>
+                  </div>
+                );
+              })}
             </div>
           </section>
           </FadeIn>
@@ -223,7 +263,7 @@ export default function PatientDashboard() {
                   </div>
                   <div>
                     <div className="font-label text-label text-on-surface-variant">Blood Pressure</div>
-                    <div className="font-body-sm text-body-sm text-outline text-[11px]">Day 12</div>
+                    <div className="font-body-sm text-body-sm text-outline text-[11px]">{bp?.relative || 'No reading yet'}</div>
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
@@ -239,8 +279,8 @@ export default function PatientDashboard() {
                     <span className="material-symbols-outlined">water_drop</span>
                   </div>
                   <div>
-                    <div className="font-label text-label text-on-surface-variant">FBG</div>
-                    <div className="font-body-sm text-body-sm text-outline text-[11px]">Day 11</div>
+                    <div className="font-label text-label text-on-surface-variant">Fasting glucose</div>
+                    <div className="font-body-sm text-body-sm text-outline text-[11px]">{fbg?.relative || 'No reading yet'}</div>
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
@@ -268,17 +308,32 @@ export default function PatientDashboard() {
           </FadeIn>
           <FadeIn delay={0.5}>
           <section className="bg-secondary-container/50 border border-secondary-container rounded-xl p-4 flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-on-surface">
-              <span className="material-symbols-outlined text-primary">chat</span>
-              <span className="font-label text-label">Message from Clinic</span>
+            <div className="flex items-center justify-between text-on-surface">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">chat</span>
+                <span className="font-label text-label">Message from your clinic</span>
+              </div>
+              {latestSentMessage && (
+                <span className="text-[11px] text-outline">
+                  {new Date(latestSentMessage.sent_at || latestSentMessage.created_at).toLocaleDateString()}
+                </span>
+              )}
             </div>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">Dr. Mehta sent you a message via Telegram — check your Telegram app to read it.</p>
-            <p className="font-body-sm text-body-sm text-on-surface-variant hindi">डॉ. मेहता ने आपको टेलीग्राम के माध्यम से एक संदेश भेजा है - इसे पढ़ने के लिए अपना टेलीग्राम ऐप देखें।</p>
+            {latestSentMessage ? (
+              <p className="font-body-sm text-body-sm text-on-surface bg-surface-container-lowest border border-outline-variant/60 rounded-md p-3 italic leading-relaxed">
+                "{latestSentMessage.sent_message_text}"
+              </p>
+            ) : (
+              <>
+                <p className="font-body-sm text-body-sm text-on-surface-variant">No new messages from your clinic right now. We'll let you know on Telegram if anything changes.</p>
+                <p className="font-body-sm text-body-sm text-on-surface-variant hindi">अभी आपके क्लिनिक से कोई नया संदेश नहीं है। कुछ बदलाव होने पर हम आपको टेलीग्राम पर बताएँगे।</p>
+              </>
+            )}
             <a
               href="https://t.me/Care_companion_Saathi_bot"
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 bg-primary text-on-primary font-label text-label py-2 px-4 rounded-lg w-full flex justify-center items-center gap-2 hover:bg-primary-container transition-colors"
+              className="mt-1 bg-primary text-on-primary font-label text-label py-2 px-4 rounded-lg w-full flex justify-center items-center gap-2 hover:bg-primary-container transition-colors"
             >
               Open Telegram
               <span className="material-symbols-outlined text-[18px]">open_in_new</span>

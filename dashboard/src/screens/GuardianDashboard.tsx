@@ -7,6 +7,10 @@ export default function GuardianDashboard() {
   if (loading && !data) return <DashboardLoading label="Loading family view…" />;
   if (error && !data) return <DashboardError error={error} onRetry={refresh} kind="guardian" />;
   const patient = data?.patient;
+  const recentEvents = data?.recent_events || [];
+  const medsAdherence = data?.medications_adherence || [];
+  const checkInDays = data?.check_in.last_7_days || [];
+  const latestSentMessage = data?.interventions.find(i => i.status === 'sent' && i.sent_message_text) || null;
   const guardian = data?.guardian;
   const risk = data?.risk;
   const adh7 = data?.adherence_7d;
@@ -130,89 +134,59 @@ export default function GuardianDashboard() {
           </FadeIn>
           <FadeIn delay={0.2}>
           <div className="bg-primary-fixed/30 border border-primary-fixed-dim rounded-lg p-4 flex items-start gap-3">
-            <span className="material-symbols-outlined text-primary mt-0.5" data-icon="chat_bubble">chat_bubble</span>
-            <div>
-              <h3 className="font-label text-label text-on-surface font-semibold mb-1">Doctor's Note</h3>
-              <p className="font-body-sm text-body-sm text-on-surface-variant">Dr. Mehta sent your mother a message about her BP medication. She read it 12 hours ago.</p>
+            <span className="material-symbols-outlined text-primary mt-0.5">chat_bubble</span>
+            <div className="flex-1">
+              <h3 className="font-label text-label text-on-surface font-semibold mb-1">Latest message from clinic</h3>
+              {latestSentMessage ? (
+                <p className="font-body-sm text-body-sm text-on-surface-variant italic">"{(latestSentMessage.sent_message_text || '').slice(0, 160)}{(latestSentMessage.sent_message_text || '').length > 160 ? '…' : ''}"</p>
+              ) : (
+                <p className="font-body-sm text-body-sm text-on-surface-variant">No new messages from the clinic right now. {ashaFirst} will hear on Telegram if anything changes.</p>
+              )}
             </div>
           </div>
           </FadeIn>
           <FadeIn delay={0.3}>
           <section className="bg-surface-container-lowest border border-surface-variant rounded-xl p-card_padding">
-            <h2 className="font-h2 text-h2 text-on-surface mb-6">Recent Events</h2>
-            <div className="relative pl-4 space-y-6">
-              <div className="absolute left-4 top-2 bottom-2 w-px bg-surface-variant -translate-x-1/2"></div>
-              <div className="relative">
-                <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-primary -translate-x-[21px] ring-4 ring-surface-container-lowest"></div>
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
-                  <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider w-24 shrink-0">Today</h3>
-                  <div className="bg-surface-container-low rounded-lg p-3 flex-1 flex items-start gap-3">
-                    <span className="material-symbols-outlined text-secondary text-[20px] mt-0.5" data-icon="mic">mic</span>
-                    <p className="font-body text-body text-on-surface">Sent voice note in Hindi <span className="text-secondary">(mood: low energy)</span></p>
-                  </div>
-                </div>
+            <h2 className="font-h2 text-h2 text-on-surface mb-6">Recent events</h2>
+            {recentEvents.length === 0 ? (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">No recent activity. Once {ashaFirst} starts logging, events will appear here.</p>
+            ) : (
+              <div className="relative pl-4 space-y-5">
+                <div className="absolute left-4 top-2 bottom-2 w-px bg-surface-variant -translate-x-1/2"></div>
+                {recentEvents.map(ev => {
+                  const dotColor = ev.severity === 'alert' ? 'bg-error'
+                    : ev.severity === 'warn' ? 'bg-tertiary-container'
+                    : 'bg-primary';
+                  const ringClass = ev.severity === 'alert' ? 'ring-2 ring-error-container'
+                    : ev.severity === 'warn' ? 'ring-2 ring-tertiary-fixed'
+                    : 'ring-4 ring-surface-container-lowest';
+                  const icon = ev.kind === 'vital_bp' ? 'vital_signs'
+                    : ev.kind === 'vital_glucose' ? 'water_drop'
+                    : ev.kind === 'adherence_missed' ? 'medication'
+                    : ev.kind === 'symptom' ? 'mic'
+                    : ev.kind === 'intervention_sent' ? 'mark_chat_read'
+                    : 'event';
+                  const iconColor = ev.severity === 'alert' ? 'text-error'
+                    : ev.severity === 'warn' ? 'text-tertiary-container'
+                    : 'text-secondary';
+                  return (
+                    <div className="relative" key={ev.recorded_at + ev.label}>
+                      <div className={`absolute left-0 top-1.5 w-3 h-3 rounded-full ${dotColor} -translate-x-[23px] ${ringClass}`}></div>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
+                        <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider w-24 shrink-0">{ev.relative}</h3>
+                        <div className="flex-1 flex items-start gap-3 py-1">
+                          <span className={`material-symbols-outlined text-[20px] mt-0.5 ${iconColor}`}>{icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-body text-body text-on-surface">{ev.label}</p>
+                            {ev.detail && <p className="font-body-sm text-[11px] text-outline mt-0.5">{ev.detail}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="relative">
-                <div className="absolute left-0 top-1.5 w-3 h-3 rounded-full bg-error -translate-x-[23px] ring-2 ring-error-container"></div>
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
-                  <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider w-24 shrink-0">Yesterday</h3>
-                  <div className="flex-1 flex items-center gap-3 py-2">
-                    <span className="material-symbols-outlined text-error text-[20px]" data-icon="medication">medication</span>
-                    <p className="font-body text-body text-on-surface font-medium">Skipped morning blood pressure medication</p>
-                  </div>
-                </div>
-              </div>
-              <div className="relative">
-                <div className="absolute left-0 top-1.5 w-3 h-3 rounded-full bg-tertiary-container -translate-x-[23px] ring-2 ring-tertiary-fixed"></div>
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
-                  <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider w-24 shrink-0">Yesterday</h3>
-                  <div className="flex-1 flex items-center gap-3 py-2">
-                    <span className="material-symbols-outlined text-tertiary-container text-[20px]" data-icon="vital_signs">vital_signs</span>
-                    <p className="font-body text-body text-on-surface font-medium">BP reading 152/94 (above usual)</p>
-                  </div>
-                </div>
-              </div>
-              <div className="relative">
-                <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-surface-variant -translate-x-[21px]"></div>
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
-                  <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider w-24 shrink-0">2 days ago</h3>
-                  <div className="bg-surface-container-low rounded-lg p-3 flex-1 flex items-start gap-3">
-                    <span className="material-symbols-outlined text-secondary text-[20px] mt-0.5" data-icon="record_voice_over">record_voice_over</span>
-                    <p className="font-body text-body text-on-surface">Said 'feeling heavy-headed' in voice check-in</p>
-                  </div>
-                </div>
-              </div>
-              <div className="relative">
-                <div className="absolute left-0 top-1.5 w-3 h-3 rounded-full bg-error -translate-x-[23px] ring-2 ring-error-container"></div>
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
-                  <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider w-24 shrink-0">3 days ago</h3>
-                  <div className="flex-1 flex items-center gap-3 py-2">
-                    <span className="material-symbols-outlined text-error text-[20px]" data-icon="medication">medication</span>
-                    <p className="font-body text-body text-on-surface font-medium">Skipped morning medication</p>
-                  </div>
-                </div>
-              </div>
-              <div className="relative">
-                <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-surface-variant -translate-x-[21px]"></div>
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
-                  <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider w-24 shrink-0">4 days ago</h3>
-                  <div className="flex-1 flex items-center gap-3 py-2">
-                    <span className="material-symbols-outlined text-outline text-[20px]" data-icon="check_circle">check_circle</span>
-                    <p className="font-body text-body text-on-surface-variant">All medications taken, BP normal</p>
-                  </div>
-                </div>
-              </div>
-              <div className="relative">
-                <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-surface-variant -translate-x-[21px]"></div>
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-baseline gap-1">
-                  <h3 className="font-label text-label text-on-surface-variant uppercase tracking-wider w-24 shrink-0">5 days ago</h3>
-                  <div className="flex-1 flex items-center gap-3 py-2">
-                    <span className="material-symbols-outlined text-outline text-[20px]" data-icon="check_circle">check_circle</span>
-                    <p className="font-body text-body text-on-surface-variant">All medications taken, BP normal</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
           </section>
           </FadeIn>
         </div>
@@ -223,83 +197,65 @@ export default function GuardianDashboard() {
               <h2 className="font-h2 text-h2 text-on-surface">Medication</h2>
               <span className="font-label text-label text-on-surface-variant">30 days</span>
             </div>
-            <div className="flex flex-col gap-3">
-              <div className="bg-surface p-4 rounded-lg border border-surface-variant flex flex-col gap-2">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-body text-body text-on-surface font-semibold">Amlodipine</h3>
-                    <p className="font-label text-label text-on-surface-variant">Blood Pressure</p>
-                  </div>
-                  <span className="bg-tertiary-fixed text-on-tertiary-fixed-variant font-label text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Below Usual</span>
-                </div>
-                <div className="flex items-end gap-2 mt-2">
-                  <span className="font-vital-lg text-vital-lg text-on-surface">67%</span>
-                  <span className="font-body-sm text-body-sm text-on-surface-variant pb-0.5">adherence</span>
-                </div>
+            {medsAdherence.length === 0 ? (
+              <p className="font-body-sm text-body-sm text-on-surface-variant">No active prescriptions yet. They'll appear here once added.</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {medsAdherence.map(m => {
+                  const pct = m.adherence_pct_30d;
+                  const noData = pct == null;
+                  const lowAdherence = pct != null && pct < 80;
+                  const badgeClass = noData
+                    ? 'bg-surface-container-high text-on-surface-variant'
+                    : lowAdherence
+                      ? 'bg-error-container text-on-error-container'
+                      : 'bg-surface-container-high text-on-surface';
+                  const badgeText = noData ? 'No data' : lowAdherence ? 'Below usual' : 'Okay';
+                  return (
+                    <div key={m.drug_name} className="bg-surface p-4 rounded-lg border border-surface-variant flex flex-col gap-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-body text-body text-on-surface font-semibold">{m.drug_name}</h3>
+                          <p className="font-label text-label text-on-surface-variant">
+                            {m.purpose || (m.dose ? `${m.dose}` : 'Prescribed medication')}{m.frequency ? ` · ${m.frequency}` : ''}
+                          </p>
+                        </div>
+                        <span className={`font-label text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${badgeClass}`}>{badgeText}</span>
+                      </div>
+                      <div className="flex items-end gap-2 mt-2">
+                        <span className={`font-vital-lg text-vital-lg ${lowAdherence ? 'text-error' : 'text-on-surface'}`}>
+                          {noData ? '—' : `${pct}%`}
+                        </span>
+                        <span className="font-body-sm text-body-sm text-on-surface-variant pb-0.5">
+                          {noData ? 'no doses logged yet' : 'adherence'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="bg-surface p-4 rounded-lg border border-surface-variant flex flex-col gap-2">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-body text-body text-on-surface font-semibold">Metformin</h3>
-                    <p className="font-label text-label text-on-surface-variant">Diabetes</p>
-                  </div>
-                  <span className="bg-surface-container-high text-on-surface font-label text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Okay</span>
-                </div>
-                <div className="flex items-end gap-2 mt-2">
-                  <span className="font-vital-lg text-vital-lg text-on-surface">86%</span>
-                  <span className="font-body-sm text-body-sm text-on-surface-variant pb-0.5">adherence</span>
-                </div>
-              </div>
-            </div>
+            )}
           </section>
           </FadeIn>
           <FadeIn delay={0.5}>
           <section className="bg-surface-container-lowest border border-surface-variant rounded-xl p-card_padding">
-            <h2 className="font-h2 text-h2 text-on-surface mb-1">Check-in Consistency</h2>
+            <h2 className="font-h2 text-h2 text-on-surface mb-1">Check-in consistency</h2>
             <p className="font-body-sm text-body-sm text-on-surface-variant mb-4">Last 7 days</p>
             <div className="flex justify-between items-center px-2">
-              <div className="flex flex-col items-center gap-1">
-                <span className="font-label text-[10px] text-on-surface-variant">Mon</span>
-                <div className="w-6 h-6 rounded-full bg-primary-fixed/30 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[14px] text-primary" data-icon="check">check</span>
-                </div>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="font-label text-[10px] text-on-surface-variant">Tue</span>
-                <div className="w-6 h-6 rounded-full bg-primary-fixed/30 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[14px] text-primary" data-icon="check">check</span>
-                </div>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="font-label text-[10px] text-on-surface-variant">Wed</span>
-                <div className="w-6 h-6 rounded-full bg-primary-fixed/30 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[14px] text-primary" data-icon="check">check</span>
-                </div>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="font-label text-[10px] text-on-surface-variant">Thu</span>
-                <div className="w-6 h-6 rounded-full bg-primary-fixed/30 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[14px] text-primary" data-icon="check">check</span>
-                </div>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="font-label text-[10px] text-on-surface-variant">Fri</span>
-                <div className="w-6 h-6 rounded-full bg-error-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[14px] text-on-error-container" data-icon="close">close</span>
-                </div>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="font-label text-[10px] text-on-surface-variant">Sat</span>
-                <div className="w-6 h-6 rounded-full bg-primary-fixed/30 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[14px] text-primary" data-icon="check">check</span>
-                </div>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="font-label text-[10px] text-on-surface-variant">Sun</span>
-                <div className="w-6 h-6 rounded-full bg-primary-fixed/30 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[14px] text-primary" data-icon="check">check</span>
-                </div>
-              </div>
+              {checkInDays.map(d => {
+                const wd = new Date(d.date).getDay();
+                const labels = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                return (
+                  <div key={d.date} className="flex flex-col items-center gap-1">
+                    <span className="font-label text-[10px] text-on-surface-variant">{labels[wd]}</span>
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                      d.logged ? 'bg-primary-fixed/30 text-primary' : 'bg-error-container/40 text-on-error-container'
+                    }`} title={`${d.date} · ${d.logged ? 'logged' : 'no log'}`}>
+                      <span className="material-symbols-outlined text-[14px]">{d.logged ? 'check' : 'close'}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
           </FadeIn>
