@@ -5,6 +5,7 @@ import ClinicianRoster from "./screens/ClinicianRoster";
 import PatientDetail from "./screens/PatientDetail";
 import PatientDashboard from "./screens/PatientDashboard";
 import GuardianDashboard from "./screens/GuardianDashboard";
+import InterventionsPage from "./screens/InterventionsPage";
 import { DashboardProvider } from "./lib/dashboardData";
 
 function ClinicianRosterRoute() {
@@ -82,6 +83,7 @@ export default function App() {
         <Route path="/clinician" element={<ClinicianRosterRoute />} />
         <Route path="/clinician/detail" element={<PatientDetailRoute />} />
         <Route path="/clinician/trace" element={<PatientDetailRoute panelOpen={true} />} />
+        <Route path="/clinician/interventions" element={<InterventionsPage />} />
         <Route path="/patient" element={<PatientDashboardRoute />} />
         <Route path="/guardian" element={<GuardianDashboardRoute />} />
         <Route path="/trace" element={<PatientDetailRoute panelOpen={true} />} />

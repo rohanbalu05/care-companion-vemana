@@ -115,7 +115,7 @@ export default function PatientDetail({ initialPanelOpen = false }: { initialPan
             <span className="material-symbols-outlined text-[20px]">group</span>
             <span>Patients</span>
           </Link>
-          <Link to="/clinician/detail" className="flex items-center gap-3 px-3 py-2 text-teal-700 dark:text-teal-400 font-semibold border-r-2 border-teal-700 dark:border-teal-400 bg-stone-50 dark:bg-stone-900/50 cursor-pointer active:opacity-80 transition-colors rounded-md group">
+          <Link to="/clinician/interventions" className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80 group">
             <span className="material-symbols-outlined text-[20px]">healing</span>
             <span>Interventions</span>
           </Link>

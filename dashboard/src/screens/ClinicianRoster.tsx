@@ -42,10 +42,9 @@ export default function ClinicianRoster() {
               </Link>
             </li>
             <li>
-              <Link to="/clinician/detail" className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors cursor-pointer active:opacity-80">
+              <Link to="/clinician/interventions" className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors cursor-pointer active:opacity-80">
                 <span className="material-symbols-outlined text-lg">healing</span>
                 Interventions
-                <span className="ml-auto bg-error text-on-error text-[10px] font-bold px-2 py-0.5 rounded-full">3</span>
               </Link>
             </li>
             <li>
@@ -96,8 +95,8 @@ export default function ClinicianRoster() {
         </header>
         <main className="flex-1 mt-16 p-6">
           <FadeIn delay={0}>
-            <Link to="/clinician/detail" className="block bg-[#0F766E]/10 border border-[#0F766E]/20 text-[#0F766E] px-4 py-2 rounded-md mb-6 flex items-center justify-between text-sm font-medium cursor-pointer hover:bg-[#0F766E]/15 transition-colors">
-              <span>3 interventions awaiting your approval →</span>
+            <Link to="/clinician/interventions" className="block bg-[#0F766E]/10 border border-[#0F766E]/20 text-[#0F766E] px-4 py-2 rounded-md mb-6 flex items-center justify-between text-sm font-medium cursor-pointer hover:bg-[#0F766E]/15 transition-colors">
+              <span>Interventions awaiting your approval →</span>
             </Link>
           </FadeIn>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
@@ -114,16 +113,16 @@ export default function ClinicianRoster() {
                     <p className="font-label text-stone-500 uppercase tracking-wider mt-1">High Risk</p>
                     <p className="text-[11px] text-stone-400 mt-1">↑ 1 since yesterday</p>
                   </div>
-                  <div className="bg-white border border-stone-200 p-4 rounded-xl shadow-sm">
+                  <Link to="/clinician/interventions" className="bg-white border border-stone-200 p-4 rounded-xl shadow-sm hover:bg-stone-50 transition-colors group">
                     <p className="font-vital-lg text-[24px] text-[#EA580C]">12</p>
-                    <p className="font-label text-stone-500 uppercase tracking-wider mt-1">Awaiting Review</p>
-                    <p className="text-[11px] text-stone-400 mt-1">Pending vitals confirmation</p>
-                  </div>
-                  <div className="bg-white border border-stone-200 p-4 rounded-xl shadow-sm hover:bg-stone-50 transition-colors cursor-pointer group">
+                    <p className="font-label text-stone-500 uppercase tracking-wider mt-1 group-hover:text-[#EA580C] transition-colors">Awaiting Review</p>
+                    <p className="text-[11px] text-stone-400 mt-1">Open the queue →</p>
+                  </Link>
+                  <Link to="/clinician/interventions" className="bg-white border border-stone-200 p-4 rounded-xl shadow-sm hover:bg-stone-50 transition-colors group">
                     <p className="font-vital-lg text-[24px] text-[#0F766E]">3</p>
                     <p className="font-label text-stone-500 uppercase tracking-wider mt-1 group-hover:text-[#0F766E] transition-colors">Interventions Pending</p>
-                    <p className="text-[11px] text-stone-400 mt-1">Approve to send</p>
-                  </div>
+                    <p className="text-[11px] text-stone-400 mt-1">Approve to send →</p>
+                  </Link>
                 </div>
               </FadeIn>
             </div>
