@@ -204,7 +204,14 @@ export default function PatientDetail({ initialPanelOpen = false }: { initialPan
                 </div>
               </div>
               </FadeIn>
-              <RiskStoryTimeline onMarkerClick={(eventId) => openPanel(eventId)} />
+              <RiskStoryTimeline
+                bp={data?.vitals.last_14_bp || []}
+                glucose={data?.vitals.last_14_glucose || []}
+                adherence={{ last_14_status: data?.adherence_7d.last_14_status || [] }}
+                riskEvents={data?.risk.events || []}
+                recentEvents={data?.recent_events || []}
+                onMarkerClick={(eventId) => openPanel(eventId)}
+              />
             </div>
             <FadeIn delay={0.2}>
             <div className="flex flex-col gap-4">
@@ -328,7 +335,7 @@ export default function PatientDetail({ initialPanelOpen = false }: { initialPan
           </div>
         </main>
       </div>
-      <ReasoningTracePanel isOpen={panelOpen} onClose={closePanel} eventId={panelEventId} />
+      <ReasoningTracePanel isOpen={panelOpen} onClose={closePanel} eventId={panelEventId} events={data?.risk.events || []} />
     </div>
   );
 }

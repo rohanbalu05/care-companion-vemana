@@ -33,6 +33,20 @@ export type DashboardData = {
     rule_fired: string | null;
     detected_at: string | null;
     events_count: number;
+    events: Array<{
+      id: string;
+      event_type: string;
+      severity: string;
+      rule_fired: string | null;
+      narrative_text: string | null;
+      guideline_citation: string | null;
+      detected_at: string;
+      relative: string;
+      data_point_refs: any;
+      llm_reasoning_trace: any;
+      primary_diagnosis_id: string | null;
+      involved_diagnosis_ids: string[] | null;
+    }>;
   };
   vitals: {
     latest_bp: { systolic: number; diastolic: number; recorded_at: string; relative: string; out_of_range: boolean } | null;

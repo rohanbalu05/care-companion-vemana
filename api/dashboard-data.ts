@@ -108,8 +108,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select('score, sub_score_adherence, sub_score_vitals, sub_score_engagement, sub_score_symptom, calculated_for_date, calculation_breakdown')
         .eq('patient_id', patientId).order('calculated_for_date', { ascending: false }).limit(14),
       supabase.from('risk_events')
-        .select('event_type, severity, narrative_text, guideline_citation, rule_fired, detected_at, llm_reasoning_trace')
-        .eq('patient_id', patientId).order('detected_at', { ascending: false }).limit(5),
+        .select('id, event_type, severity, narrative_text, guideline_citation, rule_fired, detected_at, llm_reasoning_trace, data_point_refs, primary_diagnosis_id, involved_diagnosis_ids')
+        .eq('patient_id', patientId).order('detected_at', { ascending: false }).limit(8),
       supabase.from('adherence_events')
         .select('status, scheduled_at, taken_at, medication_id')
         .eq('patient_id', patientId).gte('scheduled_at', sevenDaysAgo).order('scheduled_at', { ascending: false }),
@@ -365,7 +365,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         citation: riskEvent?.guideline_citation || null,
         rule_fired: riskEvent?.rule_fired || null,
         detected_at: riskEvent?.detected_at || null,
-        events_count: (riskRes.data || []).length
+        events_count: (riskRes.data || []).length,
+        events: ((riskRes.data || []) as any[]).map(r => ({
+          id: r.id,
+          event_type: r.event_type,
+          severity: r.severity,
+          rule_fired: r.rule_fired,
+          narrative_text: r.narrative_text,
+          guideline_citation: r.guideline_citation,
+          detected_at: r.detected_at,
+          relative: relativeLabel(r.detected_at),
+          data_point_refs: r.data_point_refs || null,
+          llm_reasoning_trace: r.llm_reasoning_trace || null,
+          primary_diagnosis_id: r.primary_diagnosis_id || null,
+          involved_diagnosis_ids: r.involved_diagnosis_ids || null
+        }))
       },
       vitals: {
         latest_bp: latestBp ? {
