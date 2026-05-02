@@ -3,11 +3,9 @@ import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { FadeIn } from "../components/FadeIn";
 import RiskStoryTimeline from "../components/RiskStoryTimeline";
-import CallAshaButton from "../components/CallAshaButton";
 import ReasoningTracePanel from "./ReasoningTracePanel";
 import { useDashboard, riskColor } from "../lib/dashboardData";
 
-const ASHA_PATIENT_ID = "5cf64ecc-0b6a-4cea-b02b-85605a6f5f03";
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) || '';
 
 type ActionState = 'idle' | 'submitting' | 'sent' | 'rejected' | 'error';
@@ -203,7 +201,6 @@ export default function PatientDetail({ initialPanelOpen = false }: { initialPan
                       {risky.label} RISK
                     </div>
                     <button onClick={() => openPanel()} className="text-primary text-label font-label flex items-center gap-1 hover:underline cursor-pointer bg-transparent border-0 p-0">View reasoning <span className="material-symbols-outlined text-[14px]">arrow_forward</span></button>
-                    <CallAshaButton patientId={ASHA_PATIENT_ID} />
                   </div>
                 </div>
               </div>

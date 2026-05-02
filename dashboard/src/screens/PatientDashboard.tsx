@@ -262,30 +262,35 @@ export default function PatientDashboard() {
             </div>
             <p className="font-body-sm text-body-sm text-on-surface-variant">Dr. Mehta sent you a message via Telegram — check your Telegram app to read it.</p>
             <p className="font-body-sm text-body-sm text-on-surface-variant hindi">डॉ. मेहता ने आपको टेलीग्राम के माध्यम से एक संदेश भेजा है - इसे पढ़ने के लिए अपना टेलीग्राम ऐप देखें।</p>
-            <button className="mt-2 bg-primary text-on-primary font-label text-label py-2 px-4 rounded-lg w-full flex justify-center items-center gap-2 hover:bg-primary-container transition-colors">
+            <a
+              href="https://t.me/Care_companion_Saathi_bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 bg-primary text-on-primary font-label text-label py-2 px-4 rounded-lg w-full flex justify-center items-center gap-2 hover:bg-primary-container transition-colors"
+            >
               Open Telegram
               <span className="material-symbols-outlined text-[18px]">open_in_new</span>
-            </button>
+            </a>
           </section>
           </FadeIn>
         </main>
-        <nav className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-md font-sans text-[11px] font-medium text-teal-700 dark:text-teal-400 fixed bottom-0 w-full max-w-md left-1/2 -translate-x-1/2 border-t border-stone-200 dark:border-stone-800 shadow-[0_-2px_10px_rgba(0,0,0,0.02)] flex justify-around items-center h-16 z-50 px-2 pb-safe">
-          <button className="flex flex-col items-center justify-center text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 rounded-xl px-3 py-1 scale-95 transition-transform duration-100">
+        <nav role="navigation" aria-label="Bottom tabs" className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-md font-sans text-[11px] font-medium text-teal-700 dark:text-teal-400 fixed bottom-0 w-full max-w-md left-1/2 -translate-x-1/2 border-t border-stone-200 dark:border-stone-800 shadow-[0_-2px_10px_rgba(0,0,0,0.02)] flex justify-around items-center h-16 z-50 px-2 pb-safe">
+          <span aria-current="page" className="flex flex-col items-center justify-center text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 rounded-xl px-3 py-1">
             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
             <span className="mt-1">Home</span>
-          </button>
-          <button className="flex flex-col items-center justify-center text-stone-400 dark:text-stone-500 hover:text-stone-600 hover:text-teal-600 dark:hover:text-teal-300">
+          </span>
+          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 cursor-default opacity-60">
             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>vital_signs</span>
             <span className="mt-1">Health</span>
-          </button>
-          <button className="flex flex-col items-center justify-center text-stone-400 dark:text-stone-500 hover:text-stone-600 hover:text-teal-600 dark:hover:text-teal-300">
+          </span>
+          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 cursor-default opacity-60">
             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>emoji_events</span>
             <span className="mt-1">Awards</span>
-          </button>
-          <button className="flex flex-col items-center justify-center text-stone-400 dark:text-stone-500 hover:text-stone-600 hover:text-teal-600 dark:hover:text-teal-300">
+          </span>
+          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 cursor-default opacity-60">
             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>person</span>
             <span className="mt-1">Profile</span>
-          </button>
+          </span>
         </nav>
       </div>
     </div>

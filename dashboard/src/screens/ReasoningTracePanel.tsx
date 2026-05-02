@@ -214,9 +214,7 @@ export default function ReasoningTracePanel({ isOpen, onClose }: Props) {
                     </p>
                     <div className="flex items-center justify-between">
                       <span className="font-label text-label text-on-surface-variant">RSSDI 2022 §4.3</span>
-                      <a className="font-label text-label text-primary hover:text-primary-container inline-flex items-center gap-1 transition-colors" href="#">
-                        View full guideline <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                      </a>
+                      <span className="font-label text-label text-outline">Reference snippet</span>
                     </div>
                   </div>
                 </section>

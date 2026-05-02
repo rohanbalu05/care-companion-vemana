@@ -37,11 +37,11 @@ export default function GuardianDashboard() {
       <header className="bg-white dark:bg-stone-900 docked full-width top-0 sticky border-b border-stone-200 dark:border-stone-800 z-50">
         <div className="flex justify-between items-center w-full h-16 px-4 max-w-md mx-auto md:max-w-7xl">
           <div className="text-lg font-bold tracking-tight text-teal-700 dark:text-teal-400">Care Companion</div>
-          <nav className="hidden md:flex items-center gap-6">
-            <a className="text-stone-500 dark:text-stone-400 font-label text-label hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors px-3 py-2 rounded-lg" href="#">Home</a>
-            <a className="text-teal-700 dark:text-teal-400 font-semibold font-label text-label hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors px-3 py-2 rounded-lg" href="#">Health</a>
-            <a className="text-stone-500 dark:text-stone-400 font-label text-label hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors px-3 py-2 rounded-lg" href="#">Awards</a>
-            <a className="text-stone-500 dark:text-stone-400 font-label text-label hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors px-3 py-2 rounded-lg" href="#">Profile</a>
+          <nav className="hidden md:flex items-center gap-6" aria-label="Top tabs">
+            <span aria-disabled="true" className="text-stone-300 dark:text-stone-600 font-label text-label px-3 py-2 rounded-lg opacity-60 cursor-default">Home</span>
+            <span aria-current="page" className="text-teal-700 dark:text-teal-400 font-semibold font-label text-label bg-stone-50 dark:bg-stone-800 px-3 py-2 rounded-lg">Health</span>
+            <span aria-disabled="true" className="text-stone-300 dark:text-stone-600 font-label text-label px-3 py-2 rounded-lg opacity-60 cursor-default">Awards</span>
+            <span aria-disabled="true" className="text-stone-300 dark:text-stone-600 font-label text-label px-3 py-2 rounded-lg opacity-60 cursor-default">Profile</span>
           </nav>
           <div className="flex items-center gap-4">
             <button className="text-teal-700 dark:text-teal-400 font-label text-label hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors p-2 rounded-full">English</button>
@@ -310,32 +310,32 @@ export default function GuardianDashboard() {
                   <p className="font-body-sm text-[11px] text-on-surface-variant mt-0.5 max-w-[200px]">Receive instant alerts for missed check-ins or critical readings.</p>
                 </div>
               </div>
-              <div className="w-10 h-6 bg-primary rounded-full relative cursor-pointer">
-                <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-transform"></div>
+              <div role="img" aria-label="Telegram alerts on" className="w-10 h-6 bg-primary rounded-full relative">
+                <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
               </div>
             </div>
           </section>
           </FadeIn>
         </div>
       </main>
-      <nav className="md:hidden bg-white/90 dark:bg-stone-900/90 backdrop-blur-md fixed bottom-0 w-full max-w-md left-1/2 -translate-x-1/2 border-t border-stone-200 dark:border-stone-800 shadow-[0_-2px_10px_rgba(0,0,0,0.02)] z-50">
+      <nav className="md:hidden bg-white/90 dark:bg-stone-900/90 backdrop-blur-md fixed bottom-0 w-full max-w-md left-1/2 -translate-x-1/2 border-t border-stone-200 dark:border-stone-800 shadow-[0_-2px_10px_rgba(0,0,0,0.02)] z-50" aria-label="Bottom tabs">
         <div className="flex justify-around items-center h-16 w-full px-2 pb-safe">
-          <button className="flex flex-col items-center justify-center text-stone-400 dark:text-stone-500 hover:text-stone-600 w-16">
+          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 w-16 opacity-60 cursor-default">
             <span className="material-symbols-outlined mb-1" data-icon="home">home</span>
             <span className="font-sans text-[11px] font-medium">Home</span>
-          </button>
-          <button className="flex flex-col items-center justify-center text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 rounded-xl px-3 py-1 w-16 opacity-80 transition-opacity duration-150 scale-95 transition-transform duration-100">
+          </span>
+          <span aria-current="page" className="flex flex-col items-center justify-center text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-900/20 rounded-xl px-3 py-1 w-16">
             <span className="material-symbols-outlined mb-1" data-icon="vital_signs" data-weight="fill">vital_signs</span>
             <span className="font-sans text-[11px] font-medium text-teal-700 dark:text-teal-400">Health</span>
-          </button>
-          <button className="flex flex-col items-center justify-center text-stone-400 dark:text-stone-500 hover:text-stone-600 w-16">
+          </span>
+          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 w-16 opacity-60 cursor-default">
             <span className="material-symbols-outlined mb-1" data-icon="emoji_events">emoji_events</span>
             <span className="font-sans text-[11px] font-medium">Awards</span>
-          </button>
-          <button className="flex flex-col items-center justify-center text-stone-400 dark:text-stone-500 hover:text-stone-600 w-16">
+          </span>
+          <span aria-disabled="true" className="flex flex-col items-center justify-center text-stone-300 dark:text-stone-600 w-16 opacity-60 cursor-default">
             <span className="material-symbols-outlined mb-1" data-icon="person">person</span>
             <span className="font-sans text-[11px] font-medium">Profile</span>
-          </button>
+          </span>
         </div>
       </nav>
     </div>
