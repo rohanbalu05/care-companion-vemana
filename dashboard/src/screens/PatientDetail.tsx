@@ -120,13 +120,9 @@ export default function PatientDetail({ initialPanelOpen = false }: { initialPan
             <span className="material-symbols-outlined text-[20px]">healing</span>
             <span>Interventions</span>
           </Link>
-          <Link to="/" className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80 group">
+          <Link to="/clinician?add=1" className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80 group">
             <span className="material-symbols-outlined text-[20px]">person_add</span>
-            <span>Onboarding</span>
-          </Link>
-          <Link to="/clinician" className="flex items-center gap-3 px-3 py-2 text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors rounded-md cursor-pointer active:opacity-80 group">
-            <span className="material-symbols-outlined text-[20px]">settings</span>
-            <span>Settings</span>
+            <span>Onboard patient</span>
           </Link>
         </div>
         <div className="p-4 border-t border-stone-200 dark:border-stone-800">

@@ -131,15 +131,9 @@ export default function InterventionsPage() {
               </Link>
             </li>
             <li>
-              <Link to="/clinician" className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors">
+              <Link to="/clinician?add=1" className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors">
                 <span className="material-symbols-outlined text-lg">person_add</span>
-                Onboarding
-              </Link>
-            </li>
-            <li>
-              <Link to="/clinician" className="flex items-center gap-3 px-3 py-2 rounded-md text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors">
-                <span className="material-symbols-outlined text-lg">settings</span>
-                Settings
+                Onboard patient
               </Link>
             </li>
           </ul>
