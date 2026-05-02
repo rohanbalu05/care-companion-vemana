@@ -13,8 +13,12 @@
     "api/intervention-action.ts": { "maxDuration": 10 },
     "api/regenerate-token.ts": { "maxDuration": 5 },
     "api/interventions-queue.ts": { "maxDuration": 5 },
-    "api/patients-roster.ts": { "maxDuration": 5 }
+    "api/patients-roster.ts": { "maxDuration": 5 },
+    "api/proactive-checkin.ts": { "maxDuration": 60 }
   },
+  "crons": [
+    { "path": "/api/proactive-checkin", "schedule": "30 3 * * *" }
+  ],
   "rewrites": [
     { "source": "/((?!api/|assets/|favicon|.*\\.(?:js|css|png|svg|webp|jpg|woff2?)).*)", "destination": "/index.html" }
   ]
