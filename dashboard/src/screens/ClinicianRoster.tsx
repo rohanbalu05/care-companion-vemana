@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { FadeIn } from "../components/FadeIn";
+import AddPatientModal from "../components/AddPatientModal";
 import { useDashboard, riskColor } from "../lib/dashboardData";
 
 export default function ClinicianRoster() {
   const { data } = useDashboard();
+  const [addOpen, setAddOpen] = useState(false);
   const ashaName = data?.patient.full_name || 'Asha Sharma';
   const ashaAge = data?.patient.age ?? 62;
   const ashaConditions = data?.patient.diagnoses_short || 'T2DM + HTN';
@@ -156,11 +159,21 @@ export default function ClinicianRoster() {
               <button className="px-3 py-1 bg-white border border-stone-200 text-stone-600 rounded-full text-xs font-medium hover:bg-stone-50 transition-colors">Watch</button>
               <button className="px-3 py-1 bg-white border border-stone-200 text-stone-600 rounded-full text-xs font-medium hover:bg-stone-50 transition-colors">Stable</button>
             </div>
-            <div className="flex items-center gap-2 text-sm text-stone-500">
-              <span className="material-symbols-outlined text-[18px]">sort</span>
-              <span>Sort: <span className="font-medium text-stone-800">Risk (high to low)</span></span>
+            <div className="flex items-center gap-3 text-sm text-stone-500">
+              <span className="hidden md:inline-flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">sort</span>
+                <span>Sort: <span className="font-medium text-stone-800">Risk (high to low)</span></span>
+              </span>
+              <button
+                onClick={() => setAddOpen(true)}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-primary-container text-on-primary text-sm font-medium hover:bg-primary transition-colors shadow-[0_1px_2px_rgba(15,118,110,0.2)]"
+              >
+                <span className="material-symbols-outlined text-[16px]">person_add</span>
+                Add Patient
+              </button>
             </div>
           </div>
+          <AddPatientModal open={addOpen} onClose={() => setAddOpen(false)} />
           <FadeIn delay={0.3}>
             <div className="space-y-4">
               <div className="bg-orange-50/30 border border-[#E7E5E4] rounded-xl p-6 shadow-[0_2px_4px_rgba(28,25,23,0.02)] transition-shadow hover:shadow-[0_4px_12px_rgba(28,25,23,0.05)]">

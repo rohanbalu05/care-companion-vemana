@@ -8,7 +8,8 @@
     "api/health.ts": { "maxDuration": 5 },
     "api/vapi-context.ts": { "maxDuration": 5 },
     "api/dashboard-data.ts": { "maxDuration": 5 },
-    "api/evaluate-risk.ts": { "maxDuration": 60 }
+    "api/evaluate-risk.ts": { "maxDuration": 60 },
+    "api/onboard-patient.ts": { "maxDuration": 5 }
   },
   "rewrites": [
     { "source": "/((?!api/|assets/|favicon|.*\\.(?:js|css|png|svg|webp|jpg|woff2?)).*)", "destination": "/index.html" }
