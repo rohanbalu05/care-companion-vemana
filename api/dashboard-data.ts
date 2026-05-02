@@ -28,6 +28,21 @@ function diagnosisDurationLabel(yrs: number | null): string {
   return `${yrs}y`;
 }
 
+function istDayKey(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso.slice(0, 10);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+
+function istDayKeyForOffset(daysBack: number): string {
+  const todayIst = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const [y, m, d] = todayIst.split('-').map(Number);
+  const ref = new Date(Date.UTC(y, m - 1, d));
+  ref.setUTCDate(ref.getUTCDate() - daysBack);
+  return ref.toISOString().slice(0, 10);
+}
+
 function relativeLabel(iso: string | null | undefined): string {
   if (!iso) return 'a while ago';
   const then = new Date(iso);
@@ -187,7 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const adh14ByDay: Record<string, 'taken' | 'missed' | 'pending'> = {};
     for (const r of (adh30Res.data || []) as any[]) {
-      const k = (r.scheduled_at || '').slice(0, 10);
+      const k = istDayKey(r.scheduled_at);
       if (!k) continue;
       if (r.status === 'missed') {
         adh14ByDay[k] = 'missed';
@@ -199,8 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const adh14Days: Array<{ date: string; status: 'taken' | 'missed' | 'pending' }> = [];
     for (let i = 13; i >= 0; i--) {
-      const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i);
-      const k = d.toISOString().slice(0, 10);
+      const k = istDayKeyForOffset(i);
       adh14Days.push({ date: k, status: adh14ByDay[k] || 'pending' });
     }
 
@@ -344,17 +358,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const checkInDays: { date: string; logged: boolean }[] = [];
     const dayKeysWithLog = new Set<string>();
-    for (const v of bpRows) dayKeysWithLog.add(v.recorded_at.slice(0, 10));
-    for (const v of fbgRows) dayKeysWithLog.add(v.recorded_at.slice(0, 10));
-    for (const v of ppbgRows) dayKeysWithLog.add(v.recorded_at.slice(0, 10));
-    for (const s of symptomsRows) dayKeysWithLog.add(s.recorded_at.slice(0, 10));
+    for (const v of bpRows) dayKeysWithLog.add(istDayKey(v.recorded_at));
+    for (const v of fbgRows) dayKeysWithLog.add(istDayKey(v.recorded_at));
+    for (const v of ppbgRows) dayKeysWithLog.add(istDayKey(v.recorded_at));
+    for (const v of randomGlucoseRows) dayKeysWithLog.add(istDayKey(v.recorded_at));
+    for (const s of symptomsRows) dayKeysWithLog.add(istDayKey(s.recorded_at));
     for (const r of adhRows) {
-      if (r.taken_at) dayKeysWithLog.add(r.taken_at.slice(0, 10));
+      if (r.taken_at) dayKeysWithLog.add(istDayKey(r.taken_at));
     }
     for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = istDayKeyForOffset(i);
       checkInDays.push({ date: key, logged: dayKeysWithLog.has(key) });
     }
 

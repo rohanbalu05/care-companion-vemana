@@ -160,10 +160,17 @@ export function DashboardProvider({ patientId, token, guardianToken, children }:
 
   useEffect(() => {
     if (error === 'invalid_or_expired_token') return;
-    const id = setInterval(() => setTick(t => t + 1), 8000);
-    const onVis = () => { if (!document.hidden) setTick(t => t + 1); };
+    const refetch = () => setTick(t => t + 1);
+    const id = setInterval(refetch, 10000);
+    const onVis = () => { if (!document.hidden) refetch(); };
+    const onFocus = () => refetch();
     document.addEventListener('visibilitychange', onVis);
-    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onFocus);
+    };
   }, [error]);
 
   function patchIntervention(id: string, patch: InterventionPatch) {

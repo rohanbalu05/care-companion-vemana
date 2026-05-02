@@ -21,7 +21,19 @@ const BP_TOP      = 60,  BP_BOTTOM      = 180;
 const GLU_TOP     = 180, GLU_BOTTOM     = 290;
 const ADH_TOP     = 290, ADH_BOTTOM     = 330;
 
-function dayKey(iso: string): string { return iso.slice(0, 10); }
+function istDayKey(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso.slice(0, 10);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+
+function istDayKeyForOffset(daysBack: number): string {
+  const todayIst = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const [y, m, d] = todayIst.split('-').map(Number);
+  const ref = new Date(Date.UTC(y, m - 1, d));
+  ref.setUTCDate(ref.getUTCDate() - daysBack);
+  return ref.toISOString().slice(0, 10);
+}
 
 function severityFromDb(s: string | null): Severity {
   if (!s) return 'watch';
@@ -45,10 +57,9 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
   const days = useMemo(() => {
     const arr: { key: string; date: Date; label: string }[] = [];
     for (let i = 13; i >= 0; i--) {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - i);
-      arr.push({ key: d.toISOString().slice(0, 10), date: d, label: `D${14 - i}` });
+      const key = istDayKeyForOffset(i);
+      const [y, m, d] = key.split('-').map(Number);
+      arr.push({ key, date: new Date(Date.UTC(y, m - 1, d)), label: `D${14 - i}` });
     }
     return arr;
   }, []);
@@ -59,7 +70,7 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
   const bpByDay = useMemo(() => {
     const map: Record<string, number[]> = {};
     for (const r of bp || []) {
-      const k = dayKey(r.recorded_at);
+      const k = istDayKey(r.recorded_at);
       (map[k] ||= []).push(Number(r.systolic));
     }
     return map;
@@ -68,7 +79,7 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
   const gluByDay = useMemo(() => {
     const map: Record<string, number[]> = {};
     for (const r of glucose || []) {
-      const k = dayKey(r.recorded_at);
+      const k = istDayKey(r.recorded_at);
       (map[k] ||= []).push(Number(r.value));
     }
     return map;
@@ -123,7 +134,7 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
   const adhPerDay = days.map(d => adhByDay[d.key] || 'pending');
 
   const riskMarkers = (riskEvents || []).map(ev => {
-    const k = dayKey(ev.detected_at);
+    const k = istDayKey(ev.detected_at);
     const idx = days.findIndex(d => d.key === k);
     return { id: ev.id, idx: idx >= 0 ? idx : days.length - 1, label: ev.event_type.replace(/_/g, ' '), severity: severityFromDb(ev.severity), large: ev.event_type === 'multi_factor_pattern' };
   }).filter(m => m.idx >= 0);
@@ -131,7 +142,7 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
   const symptomMarkers = (recentEvents || [])
     .filter(e => e.kind === 'symptom')
     .map(e => {
-      const k = dayKey(e.recorded_at);
+      const k = istDayKey(e.recorded_at);
       const idx = days.findIndex(d => d.key === k);
       return { idx, label: e.label };
     })
@@ -294,7 +305,7 @@ export function RiskStoryTimeline({ bp, glucose, adherence, riskEvents, recentEv
                 transform: "translate(-50%, -110%)"
               }}
             >
-              <div className="font-semibold mb-0.5">{days[hoverIdx].date.toLocaleDateString()}</div>
+              <div className="font-semibold mb-0.5">{days[hoverIdx].date.toLocaleDateString(undefined, { timeZone: 'UTC', day: '2-digit', month: 'short' })}</div>
               <div className="font-mono">BP {bpSeries[hoverIdx] ?? '—'}</div>
               <div className="font-mono">FBG {gluSeries[hoverIdx] ?? '—'}</div>
               <div className="opacity-80 mt-1">
