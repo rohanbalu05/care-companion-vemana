@@ -7,8 +7,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE!;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
-const LLM_MODEL_FAST = process.env.LLM_MODEL_FAST || 'openai/gpt-4o-mini';
-const VISION_MODEL = 'anthropic/claude-sonnet-4';
+const LLM_MODEL_FAST = process.env.LLM_MODEL_FAST || 'anthropic/claude-haiku-4.5';
+const LLM_MODEL_SMART = process.env.LLM_MODEL_SMART || 'anthropic/claude-sonnet-4';
 const DEMO_PATIENT_NAME = process.env.DEMO_PATIENT_NAME || 'Asha Sharma';
 const TG_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 const TG_FILE_BASE = `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}`;
@@ -301,7 +301,7 @@ function stripJsonFences(s: string): string {
 
 async function callOcrVision(imageDataUrl: string): Promise<OcrOutput> {
   const requestBody = {
-    model: VISION_MODEL,
+    model: LLM_MODEL_SMART,
     messages: [
       { role: 'system', content: OCR_SYSTEM_PROMPT },
       { role: 'user', content: [
@@ -324,7 +324,7 @@ async function callOcrVision(imageDataUrl: string): Promise<OcrOutput> {
   });
   if (!res.ok) {
     const txt = await res.text();
-    console.error('OCR vision HTTP', res.status, 'model=', VISION_MODEL, 'body=', txt.slice(0, 500));
+    console.error('OCR vision HTTP', res.status, 'model=', LLM_MODEL_SMART, 'body=', txt.slice(0, 500));
     throw new Error(`OCR vision ${res.status}`);
   }
   const json: any = await res.json();
@@ -403,7 +403,7 @@ async function callBpVision(imageDataUrl: string): Promise<BpExtraction> {
       'X-Title': 'Care Companion BP OCR'
     },
     body: JSON.stringify({
-      model: VISION_MODEL,
+      model: LLM_MODEL_SMART,
       messages: [
         { role: 'system', content: BP_VISION_PROMPT },
         { role: 'user', content: [
@@ -453,7 +453,7 @@ async function callGlucoseVision(imageDataUrl: string): Promise<GlucoseExtractio
       'X-Title': 'Care Companion Glucose OCR'
     },
     body: JSON.stringify({
-      model: VISION_MODEL,
+      model: LLM_MODEL_SMART,
       messages: [
         { role: 'system', content: GLUCOSE_VISION_PROMPT },
         { role: 'user', content: [

@@ -12,7 +12,7 @@ import {
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE!;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
-const RISK_LLM_MODEL = 'anthropic/claude-sonnet-4';
+const LLM_MODEL_SMART = process.env.LLM_MODEL_SMART || 'anthropic/claude-sonnet-4';
 const LLM_TIMEOUT_MS = 25000;
 const IDEMPOTENCY_HOURS = 6;
 
@@ -504,7 +504,7 @@ async function callRiskLlm(profile: PatientProfile, candidate: Candidate): Promi
         'X-Title': 'Care Companion Risk Engine'
       },
       body: JSON.stringify({
-        model: RISK_LLM_MODEL,
+        model: LLM_MODEL_SMART,
         messages: [
           { role: 'system', content: LLM_SYSTEM_PROMPT },
           { role: 'user', content: JSON.stringify(userPayload) }

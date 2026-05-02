@@ -1,5 +1,5 @@
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
-const VISION_MODEL = 'anthropic/claude-sonnet-4';
+const LLM_MODEL_SMART = process.env.LLM_MODEL_SMART || 'anthropic/claude-sonnet-4';
 const CLASSIFY_TIMEOUT_MS = 25000;
 
 export type ImageType = 'prescription' | 'bp_monitor' | 'glucometer' | 'unclear' | 'other';
@@ -46,7 +46,7 @@ export async function classifyImage(dataUrl: string): Promise<Classification> {
         'X-Title': 'Care Companion Image Classifier'
       },
       body: JSON.stringify({
-        model: VISION_MODEL,
+        model: LLM_MODEL_SMART,
         messages: [
           { role: 'system', content: CLASSIFY_SYSTEM_PROMPT },
           {
